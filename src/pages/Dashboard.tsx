@@ -1,6 +1,6 @@
 import { useEffect, useState, useMemo } from 'react'
 import { IconChartBar, IconList, IconAlertCircle, IconChefHat, IconArrowLeft, IconArrowRight } from '@tabler/icons-react'
-import { supabase } from '../lib/supabase'
+import { adminUsersRequest } from '../lib/cocinerApi'
 import { useAuth } from '../hooks/useAuth'
 import { useDashboard } from '../hooks/useDashboard'
 import { useProduccionPorDia } from '../hooks/useProduccionPorDia'
@@ -171,16 +171,13 @@ export default function Dashboard() {
   useEffect(() => {
     if (!puedeFiltrar) return
 
-    supabase
-      .rpc('listar_usuarios')
-      .then(({ data: d, error: rpcError }) => {
-        if (rpcError) {
-          console.error('Error al listar chefs:', rpcError)
-          return
-        }
-        setChefs((d as ChefOption[]) ?? [])
-      })
-  }, [puedeFiltrar])
+    const token = currentUser?.token
+    if (!token) return
+
+    adminUsersRequest<{ usuarios: ChefOption[] }>(token, { action: 'list' })
+      .then(({ usuarios }) => setChefs(usuarios))
+      .catch((error: unknown) => console.error('Error al listar chefs:', error))
+  }, [puedeFiltrar, currentUser?.token])
 
   const weekTitle = useMemo(() => {
     const f = (d: Date) => `${d.getDate()} ${MONTHS[d.getMonth()].slice(0, 3)}`

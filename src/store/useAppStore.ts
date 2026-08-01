@@ -39,6 +39,7 @@ export interface UserSession {
   username: string
   nombre_completo: string
   rol: string
+  token: string
 }
 
 export interface AppState {
