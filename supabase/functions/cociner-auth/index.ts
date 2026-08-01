@@ -1,150 +1,40 @@
-import bcrypt from 'npm:bcryptjs@3.0.3'
+const headers = { 'Access-Control-Allow-Origin': '*', 'Access-Control-Allow-Headers': 'authorization, apikey, content-type', 'Access-Control-Allow-Methods': 'POST, OPTIONS', 'Content-Type': 'application/json' }
 
-interface UsuarioRow {
-  id: string
-  username: string
-  nombre_completo: string | null
-  rol: string
-  activo: boolean
-  pin_hash: string
+function response(body: Record<string, unknown>, status = 200): Response { return new Response(JSON.stringify(body), { status, headers }) }
+function text(value: unknown): string | null { return typeof value === 'string' ? value : null }
+function token(): string { return Array.from(crypto.getRandomValues(new Uint8Array(32)), (b) => b.toString(16).padStart(2, '0')).join('') }
+async function hash(value: string): Promise<string> { const d = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(value)); return Array.from(new Uint8Array(d), (b) => b.toString(16).padStart(2, '0')).join('') }
+function serviceKey(): string { const legacy = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY'); if (legacy) return legacy; const keys = JSON.parse(Deno.env.get('SUPABASE_SECRET_KEYS') ?? '{}') as Record<string, unknown>; if (typeof keys.default !== 'string') throw new Error('Falta clave de servidor'); return keys.default }
+async function rpc(name: string, payload: Record<string, unknown>): Promise<{ ok: boolean; body: unknown }> {
+  const url = Deno.env.get('SUPABASE_URL'); if (!url) throw new Error('Falta URL de Supabase')
+  const result = await fetch(`${url}/rest/v1/rpc/${name}`, { method: 'POST', headers: { apikey: serviceKey(), 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
+  const raw = await result.text(); let body: unknown = null; try { body = raw ? JSON.parse(raw) : null } catch { body = raw }; return { ok: result.ok, body }
 }
+function bearer(request: Request): string | null { const value = request.headers.get('authorization')?.replace(/^Bearer\s+/, '') ?? ''; return /^[a-f0-9]{64}$/.test(value) ? value : null }
 
-interface SessionRow {
-  id: string
-  user_id: string
-  expires_at: string
-}
-
-const corsHeaders = {
-  'Access-Control-Allow-Origin': '*',
-  'Access-Control-Allow-Headers': 'authorization, apikey, content-type',
-  'Access-Control-Allow-Methods': 'POST, OPTIONS',
-  'Content-Type': 'application/json; charset=utf-8',
-}
-
-const sessionHours = 12
-
-function json(body: Record<string, unknown>, status = 200): Response {
-  return new Response(JSON.stringify(body), { status, headers: corsHeaders })
-}
-
-function isObject(value: unknown): value is Record<string, unknown> {
-  return typeof value === 'object' && value !== null
-}
-
-function asText(value: unknown): string | null {
-  return typeof value === 'string' ? value : null
-}
-
-function serviceKey(): string {
-  const legacyKey = Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')
-  if (legacyKey) return legacyKey
-  const keys = Deno.env.get('SUPABASE_SECRET_KEYS')
-  if (!keys) throw new Error('No hay una clave de servidor configurada')
-  const parsed = JSON.parse(keys) as Record<string, unknown>
-  if (typeof parsed.default !== 'string') throw new Error('No hay una clave de servidor predeterminada')
-  return parsed.default
-}
-
-async function rest(path: string, init: RequestInit = {}): Promise<{ ok: boolean; body: unknown }> {
-  const supabaseUrl = Deno.env.get('SUPABASE_URL')
-  if (!supabaseUrl) throw new Error('Falta la URL de Supabase')
-  const response = await fetch(`${supabaseUrl}/rest/v1/${path}`, {
-    ...init,
-    headers: { apikey: serviceKey(), 'Content-Type': 'application/json', ...(init.headers ?? {}) },
-  })
-  const text = await response.text()
-  let body: unknown = null
-  if (text) {
-    try { body = JSON.parse(text) as unknown } catch { body = text }
-  }
-  return { ok: response.ok, body }
-}
-
-function getBearerToken(request: Request): string | null {
-  const authorization = request.headers.get('authorization')
-  if (!authorization?.startsWith('Bearer ')) return null
-  const token = authorization.slice('Bearer '.length).trim()
-  return /^[a-f0-9]{64}$/.test(token) ? token : null
-}
-
-function randomToken(): string {
-  const bytes = crypto.getRandomValues(new Uint8Array(32))
-  return Array.from(bytes, (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-async function hashToken(token: string): Promise<string> {
-  const digest = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(token))
-  return Array.from(new Uint8Array(digest), (byte) => byte.toString(16).padStart(2, '0')).join('')
-}
-
-async function sessionForRequest(request: Request): Promise<{ session: SessionRow; user: UsuarioRow } | null> {
-  const token = getBearerToken(request)
-  if (!token) return null
-  const tokenHash = await hashToken(token)
-  const now = encodeURIComponent(new Date().toISOString())
-  const result = await rest(`app_sessions?token_hash=eq.${tokenHash}&expires_at=gt.${now}&select=id,user_id,expires_at`)
-  const sessions = Array.isArray(result.body) ? result.body as SessionRow[] : []
-  const session = sessions[0]
-  if (!result.ok || !session) return null
-  const userResult = await rest(`usuarios?id=eq.${session.user_id}&select=id,username,nombre_completo,rol,activo,pin_hash`)
-  const users = Array.isArray(userResult.body) ? userResult.body as UsuarioRow[] : []
-  const user = users[0]
-  if (!userResult.ok || !user || !user.activo) return null
-  return { session, user }
-}
-
-function profile(user: UsuarioRow): Record<string, string> {
-  return { id: user.id, username: user.username, nombre_completo: user.nombre_completo ?? user.username, rol: user.rol }
-}
-
-Deno.serve(async (request: Request) => {
-  if (request.method === 'OPTIONS') return new Response('ok', { headers: corsHeaders })
-  if (request.method !== 'POST') return json({ error: 'Método no permitido' }, 405)
+Deno.serve(async (request) => {
+  if (request.method === 'OPTIONS') return new Response('ok', { headers })
+  if (request.method !== 'POST') return response({ error: 'Método no permitido' }, 405)
   try {
-    const input = await request.json() as unknown
-    if (!isObject(input)) return json({ error: 'Solicitud inválida' }, 400)
-    const action = asText(input.action)
-    if (action === 'login') {
-      const username = asText(input.username)?.trim().toLowerCase()
-      const pin = asText(input.pin)
-      if (!username || !/^\d{4}$/.test(pin ?? '')) return json({ error: 'Usuario o PIN incorrecto' }, 401)
-      const userResult = await rest(`usuarios?username=eq.${encodeURIComponent(username)}&activo=is.true&select=id,username,nombre_completo,rol,activo,pin_hash`)
-      const users = Array.isArray(userResult.body) ? userResult.body as UsuarioRow[] : []
-      const user = users[0]
-      if (!userResult.ok || !user || !bcrypt.compareSync(pin, user.pin_hash)) return json({ error: 'Usuario o PIN incorrecto' }, 401)
-      const token = randomToken()
-      const expiresAt = new Date(Date.now() + sessionHours * 60 * 60 * 1000).toISOString()
-      const insertResult = await rest('app_sessions', {
-        method: 'POST',
-        headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({ user_id: user.id, token_hash: await hashToken(token), expires_at: expiresAt }),
-      })
-      if (!insertResult.ok) return json({ error: 'No se pudo iniciar sesión' }, 500)
-      return json({ profile: profile(user), token, expiresAt })
+    const input = await request.json() as Record<string, unknown>
+    if (input.action === 'login') {
+      const username = text(input.username)?.trim().toLowerCase(); const pin = text(input.pin)
+      if (!username || !/^\d{4}$/.test(pin ?? '')) return response({ error: 'Usuario o PIN incorrecto' }, 401)
+      const rawToken = token(); const expiresAt = new Date(Date.now() + 12 * 60 * 60 * 1000).toISOString()
+      const result = await rpc('cociner_auth_login', { p_username: username, p_pin: pin, p_token_hash: await hash(rawToken), p_expires_at: expiresAt })
+      const users = Array.isArray(result.body) ? result.body as Array<Record<string, unknown>> : []; const user = users[0]
+      if (!result.ok || !user) return response({ error: 'Usuario o PIN incorrecto' }, 401)
+      return response({ profile: { id: user.id, username: user.username, nombre_completo: user.nombre_completo, rol: user.rol }, token: rawToken, expiresAt })
     }
-    const authenticated = await sessionForRequest(request)
-    if (!authenticated) return json({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
-    if (action === 'logout') {
-      await rest(`app_sessions?id=eq.${authenticated.session.id}`, { method: 'DELETE' })
-      return json({ ok: true })
+    const rawToken = bearer(request); if (!rawToken) return response({ error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }, 401)
+    const tokenHash = await hash(rawToken)
+    if (input.action === 'logout') { const result = await rpc('cociner_logout', { p_token_hash: tokenHash }); return result.ok ? response({ ok: true }) : response({ error: 'No se pudo cerrar sesión' }, 500) }
+    if (input.action === 'change-pin') {
+      const currentPin = text(input.currentPin); const newPin = text(input.newPin)
+      if (!/^\d{4}$/.test(currentPin ?? '') || !/^\d{4}$/.test(newPin ?? '')) return response({ error: 'El PIN debe tener 4 dígitos' }, 400)
+      const result = await rpc('cociner_change_own_pin', { p_token_hash: tokenHash, p_current_pin: currentPin, p_new_pin: newPin })
+      return result.ok ? response({ ok: true }) : response({ error: 'El PIN actual no es correcto' }, 400)
     }
-    if (action === 'change-pin') {
-      const currentPin = asText(input.currentPin)
-      const newPin = asText(input.newPin)
-      if (!/^\d{4}$/.test(currentPin ?? '') || !bcrypt.compareSync(currentPin, authenticated.user.pin_hash)) return json({ error: 'El PIN actual no es correcto' }, 400)
-      if (!/^\d{4}$/.test(newPin ?? '')) return json({ error: 'El PIN nuevo debe tener 4 dígitos' }, 400)
-      const updateResult = await rest(`usuarios?id=eq.${authenticated.user.id}`, {
-        method: 'PATCH',
-        headers: { Prefer: 'return=minimal' },
-        body: JSON.stringify({ pin_hash: bcrypt.hashSync(newPin, 12) }),
-      })
-      if (!updateResult.ok) return json({ error: 'No se pudo cambiar el PIN' }, 500)
-      return json({ ok: true })
-    }
-    return json({ error: 'Acción no permitida' }, 400)
-  } catch (error) {
-    console.error('cociner-auth error', error)
-    return json({ error: 'Error temporal del servidor' }, 500)
-  }
+    return response({ error: 'Acción no permitida' }, 400)
+  } catch (error) { console.error(error); return response({ error: 'Error temporal del servidor' }, 500) }
 })
