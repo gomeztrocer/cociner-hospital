@@ -5,9 +5,9 @@
 
 -- 1. Producción por día (para gráfico semanal)
 CREATE OR REPLACE FUNCTION public.obtener_produccion_por_dia(
-  p_usuario_id UUID DEFAULT NULL,
   p_desde DATE,
   p_hasta DATE,
+  p_usuario_id UUID DEFAULT NULL,
   p_categoria TEXT DEFAULT NULL
 )
 RETURNS JSON
@@ -36,8 +36,8 @@ $$;
 
 -- 2. Producción por semana (para gráfico mensual)
 CREATE OR REPLACE FUNCTION public.obtener_produccion_por_semana(
-  p_usuario_id UUID DEFAULT NULL,
   p_mes TEXT,
+  p_usuario_id UUID DEFAULT NULL,
   p_categoria TEXT DEFAULT NULL
 )
 RETURNS JSON
