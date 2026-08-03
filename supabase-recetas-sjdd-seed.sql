@@ -128,7 +128,7 @@ BEGIN
     INSERT INTO public.recetas (nombre, servicio, raciones_base, temperatura, tiempo, notas)
     VALUES (
       'Arroz con pollo', NULL, 100, NULL, NULL,
-      'Propuesta inicial basada en la ficha de gramajes SJDD: 80 g de arroz seco, 100 g de pollo y 60 g de fritura o verduras por ración. Ajustar después de la primera prueba de cocina.'
+      'Peso final objetivo: 250 g por ración. Los 60 g corresponden únicamente a la fritura o verduras, no a la ración completa. Propuesta inicial: 80 g de arroz seco y 100 g de pollo por ración. Ajustar después de la primera prueba de cocina.'
     )
     RETURNING id INTO v_receta_id;
   ELSE
@@ -137,7 +137,7 @@ BEGIN
         raciones_base = 100,
         temperatura = NULL,
         tiempo = NULL,
-        notas = 'Propuesta inicial basada en la ficha de gramajes SJDD: 80 g de arroz seco, 100 g de pollo y 60 g de fritura o verduras por ración. Ajustar después de la primera prueba de cocina.',
+        notas = 'Peso final objetivo: 250 g por ración. Los 60 g corresponden únicamente a la fritura o verduras, no a la ración completa. Propuesta inicial: 80 g de arroz seco y 100 g de pollo por ración. Ajustar después de la primera prueba de cocina.',
         activo = true,
         updated_at = now()
     WHERE id = v_receta_id;

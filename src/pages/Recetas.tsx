@@ -3,7 +3,7 @@ import { IconClock, IconBook, IconPlus, IconEdit, IconTrash, IconX, IconChefHat,
 import { useAppStore } from '../store/useAppStore'
 import { useRecetas, type Receta, type RecetaIngrediente, type CreateRecetaInput } from '../hooks/useRecetas'
 import { useHistorial } from '../hooks/useHistorial'
-import { calcularBolsasIngrediente, calcularEmbarquetadoCentros, calcularPesoRecetaKg, escalarIngredientes } from '../lib/calculos'
+import { calcularBolsasIngrediente, calcularEmbarquetadoCentros, calcularPesoRecetaKg, escalarIngredientes, extraerPesoRacionObjetivoG } from '../lib/calculos'
 import { CENTROS } from '../data/centros'
 import { FICHAS_REFERENCIA } from '../data/fichasRecetas'
 import ServicioToggle from '../components/calcular/ServicioToggle'
@@ -142,9 +142,12 @@ export default function Recetas() {
     : []
 
   const pesoBaseKg = selectedReceta ? calcularPesoRecetaKg(selectedReceta.ingredientes) : null
-  const pesoPorRacionKg = selectedReceta && pesoBaseKg != null
-    ? pesoBaseKg / selectedReceta.raciones_base
-    : null
+  const pesoRacionObjetivoG = selectedReceta ? extraerPesoRacionObjetivoG(selectedReceta.notas) : null
+  const pesoPorRacionKg = pesoRacionObjetivoG != null
+    ? pesoRacionObjetivoG / 1000
+    : selectedReceta && pesoBaseKg != null
+      ? pesoBaseKg / selectedReceta.raciones_base
+      : null
   const embarquetado = selectedReceta
     ? calcularEmbarquetadoCentros({
         centros: CENTROS,
@@ -304,7 +307,8 @@ export default function Recetas() {
                               </div>
                               <div className="text-[10px] text-text3 mt-1">
                                 Mono: 1 envase por ración · Multi: 10 raciones por barqueta
-                                {pesoPorRacionKg != null && ` · ${Math.round(pesoPorRacionKg * 1000)} g estimados/ración`}
+                                {pesoPorRacionKg != null && ` · ${Math.round(pesoPorRacionKg * 1000)} g ${pesoRacionObjetivoG != null ? 'objetivo' : 'estimados'}/ración`}
+                                {pesoRacionObjetivoG != null && ` · ${((pesoRacionObjetivoG * 10) / 1000).toLocaleString('es-ES', { maximumFractionDigits: 2 })} kg/barqueta completa`}
                               </div>
                             </div>
                             <div className="shrink-0 text-right">

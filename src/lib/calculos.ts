@@ -220,6 +220,16 @@ export function calcularPesoRecetaKg(
   return hayPeso ? Math.round(totalKg * 1000) / 1000 : null
 }
 
+export function extraerPesoRacionObjetivoG(notas: string | null): number | null {
+  if (!notas) return null
+
+  const coincidencia = notas.match(/peso final objetivo:\s*(\d+(?:[.,]\d+)?)\s*g/i)
+  if (!coincidencia) return null
+
+  const peso = Number(coincidencia[1].replace(',', '.'))
+  return Number.isFinite(peso) && peso > 0 ? peso : null
+}
+
 export function calcularEmbarquetadoCentros(params: {
   centros: Centro[]
   pacientes: Record<string, number>

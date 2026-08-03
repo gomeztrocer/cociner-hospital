@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularProteina, calcularGuarnicion, calcularBandejasHorno, calcularDesgloseCentros, escalarIngredientes, calcularReparto, calcularPesoRecetaKg, calcularEmbarquetadoCentros, calcularBolsasIngrediente } from './calculos'
+import { calcularProteina, calcularGuarnicion, calcularBandejasHorno, calcularDesgloseCentros, escalarIngredientes, calcularReparto, calcularPesoRecetaKg, calcularEmbarquetadoCentros, calcularBolsasIngrediente, extraerPesoRacionObjetivoG } from './calculos'
 import { CENTROS } from '../data/centros'
 
 describe('calcularProteina', () => {
@@ -232,6 +232,16 @@ describe('calcularPesoRecetaKg', () => {
       { nombre: 'Papas', cantidad: 67.5, unidad: 'kg' },
       { nombre: 'Sal', cantidad: 450, unidad: 'g' },
     ])).toBe(67.95)
+  })
+})
+
+describe('extraerPesoRacionObjetivoG', () => {
+  it('obtiene el peso final indicado en las notas', () => {
+    expect(extraerPesoRacionObjetivoG('Peso final objetivo: 250 g por ración.')).toBe(250)
+  })
+
+  it('devuelve null cuando no existe un peso final objetivo', () => {
+    expect(extraerPesoRacionObjetivoG('Receta pendiente de prueba.')).toBeNull()
   })
 })
 
