@@ -8,6 +8,7 @@ export interface RecetaIngrediente {
   cantidad: number
   unidad: string
   orden: number
+  peso_bolsa_kg: number | null
 }
 
 export interface Receta {
@@ -86,6 +87,7 @@ export function useRecetas(): UseRecetasReturn {
             cantidad: ing.cantidad,
             unidad: ing.unidad,
             orden: i,
+            peso_bolsa_kg: ing.peso_bolsa_kg,
           })),
           p_usuario_rol: user.rol,
         })
@@ -118,6 +120,7 @@ export function useRecetas(): UseRecetasReturn {
             cantidad: ing.cantidad,
             unidad: ing.unidad,
             orden: i,
+            peso_bolsa_kg: ing.peso_bolsa_kg,
           })),
           p_usuario_rol: user.rol,
         })

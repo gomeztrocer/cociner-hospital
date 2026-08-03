@@ -39,6 +39,13 @@ export interface EmbarquetadoCentro {
   pesoEstimadoKg: number | null
 }
 
+export interface BolsasIngredienteResult {
+  kgNecesarios: number
+  bolsasAbrir: number
+  kgDisponibles: number
+  sobranteKg: number
+}
+
 // ── PROTEÍNA ──
 
 export function calcularProteina(params: {
@@ -153,17 +160,44 @@ export interface IngredienteEscalable {
   unidad: string
 }
 
-export function escalarIngredientes(
-  ingredientes: IngredienteEscalable[],
+export function escalarIngredientes<T extends IngredienteEscalable>(
+  ingredientes: T[],
   totalPacientes: number,
   racionesBase: number,
-): IngredienteEscalable[] {
+): T[] {
   if (racionesBase <= 0 || totalPacientes <= 0) return ingredientes
   const factor = totalPacientes / racionesBase
   return ingredientes.map((ing) => ({
     ...ing,
     cantidad: Math.round(ing.cantidad * factor * 100) / 100,
   }))
+}
+
+export function calcularBolsasIngrediente(params: {
+  cantidad: number
+  unidad: string
+  pesoBolsaKg: number | null
+}): BolsasIngredienteResult | null {
+  if (params.pesoBolsaKg == null || params.pesoBolsaKg <= 0 || params.cantidad <= 0) return null
+
+  const unidad = params.unidad.trim().toLowerCase()
+  const kgNecesarios = unidad === 'kg'
+    ? params.cantidad
+    : unidad === 'g'
+      ? params.cantidad / 1000
+      : null
+
+  if (kgNecesarios == null) return null
+
+  const bolsasAbrir = Math.ceil(kgNecesarios / params.pesoBolsaKg)
+  const kgDisponibles = bolsasAbrir * params.pesoBolsaKg
+
+  return {
+    kgNecesarios: Math.round(kgNecesarios * 100) / 100,
+    bolsasAbrir,
+    kgDisponibles: Math.round(kgDisponibles * 100) / 100,
+    sobranteKg: Math.round((kgDisponibles - kgNecesarios) * 100) / 100,
+  }
 }
 
 export function calcularPesoRecetaKg(

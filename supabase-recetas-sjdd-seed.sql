@@ -31,9 +31,9 @@ BEGIN
   END IF;
 
   DELETE FROM public.receta_ingredientes WHERE receta_id = v_receta_id;
-  INSERT INTO public.receta_ingredientes (receta_id, nombre, cantidad, unidad, orden) VALUES
-    (v_receta_id, 'Patata parisina Tababa-Sun', 67.5, 'kg', 0),
-    (v_receta_id, 'Sal fina de mesa 1 kg Emicela', 0.45, 'kg', 1);
+  INSERT INTO public.receta_ingredientes (receta_id, nombre, cantidad, unidad, peso_bolsa_kg, orden) VALUES
+    (v_receta_id, 'Patata parisina Tababa-Sun', 67.5, 'kg', 2.5, 0),
+    (v_receta_id, 'Sal fina de mesa 1 kg Emicela', 0.45, 'kg', NULL, 1);
 
   v_receta_id := NULL;
   SELECT id INTO v_receta_id

@@ -3,7 +3,7 @@ import { IconClock, IconBook, IconPlus, IconEdit, IconTrash, IconX, IconChefHat,
 import { useAppStore } from '../store/useAppStore'
 import { useRecetas, type Receta, type RecetaIngrediente, type CreateRecetaInput } from '../hooks/useRecetas'
 import { useHistorial } from '../hooks/useHistorial'
-import { calcularEmbarquetadoCentros, calcularPesoRecetaKg, escalarIngredientes } from '../lib/calculos'
+import { calcularBolsasIngrediente, calcularEmbarquetadoCentros, calcularPesoRecetaKg, escalarIngredientes } from '../lib/calculos'
 import { CENTROS } from '../data/centros'
 import { FICHAS_REFERENCIA } from '../data/fichasRecetas'
 import ServicioToggle from '../components/calcular/ServicioToggle'
@@ -12,7 +12,7 @@ import CentrosGrid from '../components/calcular/CentrosGrid'
 type ModalMode = 'create' | 'edit' | null
 
 const emptyIngrediente = (): Omit<RecetaIngrediente, 'id'> => ({
-  nombre: '', cantidad: 0, unidad: 'g', orden: 0,
+  nombre: '', cantidad: 0, unidad: 'g', orden: 0, peso_bolsa_kg: null,
 })
 
 export default function Recetas() {
@@ -60,7 +60,7 @@ export default function Recetas() {
     setFormNotas(r.notas ?? '')
     setFormIngredientes(
       r.ingredientes.length > 0
-        ? r.ingredientes.map((i) => ({ nombre: i.nombre, cantidad: i.cantidad, unidad: i.unidad, orden: i.orden }))
+        ? r.ingredientes.map((i) => ({ nombre: i.nombre, cantidad: i.cantidad, unidad: i.unidad, orden: i.orden, peso_bolsa_kg: i.peso_bolsa_kg }))
         : [emptyIngrediente()],
     )
     setFormError('')
@@ -79,7 +79,7 @@ export default function Recetas() {
     setFormIngredientes((prev) => prev.filter((_, i) => i !== idx))
   }
 
-  const updateIng = (idx: number, field: keyof Omit<RecetaIngrediente, 'id'>, value: string | number) => {
+  const updateIng = (idx: number, field: keyof Omit<RecetaIngrediente, 'id'>, value: string | number | null) => {
     setFormIngredientes((prev) =>
       prev.map((ing, i) => (i === idx ? { ...ing, [field]: value } : ing)),
     )
@@ -130,7 +130,12 @@ export default function Recetas() {
 
   const scaledIngredientes = selectedReceta
     ? escalarIngredientes(
-        selectedReceta.ingredientes.map((i) => ({ nombre: i.nombre, cantidad: i.cantidad, unidad: i.unidad })),
+        selectedReceta.ingredientes.map((i) => ({
+          nombre: i.nombre,
+          cantidad: i.cantidad,
+          unidad: i.unidad,
+          peso_bolsa_kg: i.peso_bolsa_kg,
+        })),
         totalPacientes,
         selectedReceta.raciones_base,
       )
@@ -265,13 +270,29 @@ export default function Recetas() {
                             </tr>
                           </thead>
                           <tbody>
-                            {scaledIngredientes.map((ing, i) => (
-                              <tr key={i} className="border-b border-border last:border-none">
-                                <td className="py-1 text-text">{ing.nombre}</td>
-                                <td className="py-1 text-right font-mono text-text">{ing.cantidad}</td>
-                                <td className="py-1 text-right text-text2">{ing.unidad}</td>
-                              </tr>
-                            ))}
+                            {scaledIngredientes.map((ing, i) => {
+                              const bolsas = calcularBolsasIngrediente({
+                                cantidad: ing.cantidad,
+                                unidad: ing.unidad,
+                                pesoBolsaKg: ing.peso_bolsa_kg,
+                              })
+
+                              return (
+                                <tr key={i} className="border-b border-border last:border-none">
+                                  <td className="py-1.5 text-text">
+                                    {ing.nombre}
+                                    {bolsas && (
+                                      <div className="text-[10px] font-medium text-accent mt-1">
+                                        Abrir {bolsas.bolsasAbrir} bolsas × {ing.peso_bolsa_kg} kg = {bolsas.kgDisponibles} kg
+                                        {bolsas.sobranteKg > 0 && ` · sobrante estimado ${bolsas.sobranteKg} kg`}
+                                      </div>
+                                    )}
+                                  </td>
+                                  <td className="py-1.5 text-right font-mono text-text align-top">{ing.cantidad}</td>
+                                  <td className="py-1.5 text-right text-text2 align-top">{ing.unidad}</td>
+                                </tr>
+                              )
+                            })}
                           </tbody>
                         </table>
 
@@ -433,32 +454,46 @@ export default function Recetas() {
                   </button>
                 </div>
                 {formIngredientes.map((ing, i) => (
-                  <div key={i} className="grid grid-cols-[1fr_80px_70px_auto] gap-[5px] mb-[5px] items-end">
-                    <div>
-                      <label className="text-[9px] text-text3 block">Nombre</label>
-                      <input type="text" value={ing.nombre} onChange={(e) => updateIng(i, 'nombre', e.target.value)}
-                        className="w-full px-[8px] py-[6px] text-xs border border-border rounded-sm bg-bg text-text" />
+                  <div key={i} className="mb-2 rounded-sm border border-border p-2 bg-surface2">
+                    <div className="grid grid-cols-[1fr_80px_70px_auto] gap-[5px] items-end">
+                      <div>
+                        <label className="text-[9px] text-text3 block">Nombre</label>
+                        <input type="text" value={ing.nombre} onChange={(e) => updateIng(i, 'nombre', e.target.value)}
+                          className="w-full px-[8px] py-[6px] text-xs border border-border rounded-sm bg-bg text-text" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-text3 block">Cantidad</label>
+                        <input type="number" min={0} step={0.1} value={ing.cantidad} onChange={(e) => updateIng(i, 'cantidad', parseFloat(e.target.value) || 0)}
+                          className="w-full px-[8px] py-[6px] text-xs border border-border rounded-sm bg-bg text-text" />
+                      </div>
+                      <div>
+                        <label className="text-[9px] text-text3 block">Unidad</label>
+                        <select value={ing.unidad} onChange={(e) => updateIng(i, 'unidad', e.target.value)}
+                          className="w-full px-[8px] py-[6px] text-xs border border-border rounded-sm bg-bg text-text">
+                          <option value="g">g</option>
+                          <option value="kg">kg</option>
+                          <option value="litros">litros</option>
+                          <option value="unidades">unidades</option>
+                          <option value="cajas">cajas</option>
+                        </select>
+                      </div>
+                      <button onClick={() => removeIngrediente(i)}
+                        className="px-[6px] py-[6px] text-text3 cursor-pointer border border-border rounded-sm bg-transparent text-[11px]">
+                        <IconX size={12} />
+                      </button>
                     </div>
-                    <div>
-                      <label className="text-[9px] text-text3 block">Cantidad</label>
-                      <input type="number" min={0} step={0.1} value={ing.cantidad} onChange={(e) => updateIng(i, 'cantidad', parseFloat(e.target.value) || 0)}
-                        className="w-full px-[8px] py-[6px] text-xs border border-border rounded-sm bg-bg text-text" />
+                    <div className="flex items-center justify-end gap-2 mt-2">
+                      <label className="text-[9px] text-text3">Peso por bolsa (kg, opcional)</label>
+                      <input
+                        type="number"
+                        min={0}
+                        step={0.1}
+                        value={ing.peso_bolsa_kg ?? ''}
+                        onChange={(e) => updateIng(i, 'peso_bolsa_kg', e.target.value ? parseFloat(e.target.value) : null)}
+                        placeholder="2.5"
+                        className="w-[75px] px-[8px] py-[5px] text-xs font-mono border border-border rounded-sm bg-bg text-text"
+                      />
                     </div>
-                    <div>
-                      <label className="text-[9px] text-text3 block">Unidad</label>
-                      <select value={ing.unidad} onChange={(e) => updateIng(i, 'unidad', e.target.value)}
-                        className="w-full px-[8px] py-[6px] text-xs border border-border rounded-sm bg-bg text-text">
-                        <option value="g">g</option>
-                        <option value="kg">kg</option>
-                        <option value="litros">litros</option>
-                        <option value="unidades">unidades</option>
-                        <option value="cajas">cajas</option>
-                      </select>
-                    </div>
-                    <button onClick={() => removeIngrediente(i)}
-                      className="px-[6px] py-[6px] text-text3 cursor-pointer border border-border rounded-sm bg-transparent text-[11px]">
-                      <IconX size={12} />
-                    </button>
                   </div>
                 ))}
               </div>

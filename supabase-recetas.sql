@@ -26,11 +26,16 @@ CREATE TABLE IF NOT EXISTS public.receta_ingredientes (
   nombre TEXT NOT NULL,
   cantidad NUMERIC NOT NULL,
   unidad TEXT NOT NULL,
+  peso_bolsa_kg NUMERIC CHECK (peso_bolsa_kg IS NULL OR peso_bolsa_kg > 0),
   orden INTEGER DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT now()
 );
 
 ALTER TABLE public.receta_ingredientes ENABLE ROW LEVEL SECURITY;
+
+ALTER TABLE public.receta_ingredientes
+ADD COLUMN IF NOT EXISTS peso_bolsa_kg NUMERIC
+CHECK (peso_bolsa_kg IS NULL OR peso_bolsa_kg > 0);
 
 -- ══════════════════════════════════════════════════════════
 -- RPCs — Recetas
@@ -69,6 +74,7 @@ BEGIN
         'nombre', ri.nombre,
         'cantidad', ri.cantidad,
         'unidad', ri.unidad,
+        'peso_bolsa_kg', ri.peso_bolsa_kg,
         'orden', ri.orden
       ) ORDER BY ri.orden)
       FROM public.receta_ingredientes ri
@@ -115,6 +121,7 @@ BEGIN
         'nombre', ri.nombre,
         'cantidad', ri.cantidad,
         'unidad', ri.unidad,
+        'peso_bolsa_kg', ri.peso_bolsa_kg,
         'orden', ri.orden
       ) ORDER BY ri.orden)
       FROM public.receta_ingredientes ri
@@ -155,9 +162,9 @@ BEGIN
   VALUES (p_nombre, p_servicio, p_raciones_base, p_temperatura, p_tiempo, p_notas)
   RETURNING id INTO v_receta_id;
 
-  INSERT INTO public.receta_ingredientes (receta_id, nombre, cantidad, unidad, orden)
-  SELECT v_receta_id, x.nombre, x.cantidad, x.unidad, x.orden
-  FROM json_to_recordset(p_ingredientes) AS x(nombre TEXT, cantidad NUMERIC, unidad TEXT, orden INT);
+  INSERT INTO public.receta_ingredientes (receta_id, nombre, cantidad, unidad, peso_bolsa_kg, orden)
+  SELECT v_receta_id, x.nombre, x.cantidad, x.unidad, x.peso_bolsa_kg, x.orden
+  FROM json_to_recordset(p_ingredientes) AS x(nombre TEXT, cantidad NUMERIC, unidad TEXT, peso_bolsa_kg NUMERIC, orden INT);
 
   SELECT row_to_json(r) INTO v_resultado
   FROM (SELECT * FROM public.obtener_receta(v_receta_id)) r;
@@ -202,9 +209,9 @@ BEGIN
 
   DELETE FROM public.receta_ingredientes WHERE receta_id = p_receta_id;
 
-  INSERT INTO public.receta_ingredientes (receta_id, nombre, cantidad, unidad, orden)
-  SELECT p_receta_id, x.nombre, x.cantidad, x.unidad, x.orden
-  FROM json_to_recordset(p_ingredientes) AS x(nombre TEXT, cantidad NUMERIC, unidad TEXT, orden INT);
+  INSERT INTO public.receta_ingredientes (receta_id, nombre, cantidad, unidad, peso_bolsa_kg, orden)
+  SELECT p_receta_id, x.nombre, x.cantidad, x.unidad, x.peso_bolsa_kg, x.orden
+  FROM json_to_recordset(p_ingredientes) AS x(nombre TEXT, cantidad NUMERIC, unidad TEXT, peso_bolsa_kg NUMERIC, orden INT);
 
   SELECT row_to_json(r) INTO v_resultado
   FROM (SELECT * FROM public.obtener_receta(p_receta_id)) r;

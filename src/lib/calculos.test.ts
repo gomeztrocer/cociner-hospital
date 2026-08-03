@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularProteina, calcularGuarnicion, calcularBandejasHorno, calcularDesgloseCentros, escalarIngredientes, calcularReparto, calcularPesoRecetaKg, calcularEmbarquetadoCentros } from './calculos'
+import { calcularProteina, calcularGuarnicion, calcularBandejasHorno, calcularDesgloseCentros, escalarIngredientes, calcularReparto, calcularPesoRecetaKg, calcularEmbarquetadoCentros, calcularBolsasIngrediente } from './calculos'
 import { CENTROS } from '../data/centros'
 
 describe('calcularProteina', () => {
@@ -252,5 +252,28 @@ describe('calcularEmbarquetadoCentros', () => {
       barquetasMultiporcion: 2,
       pesoEstimadoKg: 3,
     })
+  })
+})
+
+describe('calcularBolsasIngrediente', () => {
+  it('62,1 kg de papa requieren 25 bolsas de 2,5 kg', () => {
+    expect(calcularBolsasIngrediente({
+      cantidad: 62.1,
+      unidad: 'kg',
+      pesoBolsaKg: 2.5,
+    })).toEqual({
+      kgNecesarios: 62.1,
+      bolsasAbrir: 25,
+      kgDisponibles: 62.5,
+      sobranteKg: 0.4,
+    })
+  })
+
+  it('también convierte gramos a kilos antes de calcular', () => {
+    expect(calcularBolsasIngrediente({
+      cantidad: 5100,
+      unidad: 'g',
+      pesoBolsaKg: 2.5,
+    })?.bolsasAbrir).toBe(3)
   })
 })
