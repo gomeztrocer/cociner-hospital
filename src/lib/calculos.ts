@@ -27,6 +27,18 @@ export interface DesgloseCentro {
   unidades: number
 }
 
+export interface EmbarquetadoCentro {
+  id: string
+  nombre: string
+  color: string
+  raciones: number
+  envasesMonoporcion: number
+  barquetasCompletas: number
+  racionesParcial: number
+  barquetasMultiporcion: number
+  pesoEstimadoKg: number | null
+}
+
 // ── PROTEÍNA ──
 
 export function calcularProteina(params: {
@@ -152,4 +164,55 @@ export function escalarIngredientes(
     ...ing,
     cantidad: Math.round(ing.cantidad * factor * 100) / 100,
   }))
+}
+
+export function calcularPesoRecetaKg(
+  ingredientes: IngredienteEscalable[],
+): number | null {
+  let totalKg = 0
+  let hayPeso = false
+
+  for (const ingrediente of ingredientes) {
+    const unidad = ingrediente.unidad.trim().toLowerCase()
+    if (unidad === 'kg') {
+      totalKg += ingrediente.cantidad
+      hayPeso = true
+    } else if (unidad === 'g') {
+      totalKg += ingrediente.cantidad / 1000
+      hayPeso = true
+    }
+  }
+
+  return hayPeso ? Math.round(totalKg * 1000) / 1000 : null
+}
+
+export function calcularEmbarquetadoCentros(params: {
+  centros: Centro[]
+  pacientes: Record<string, number>
+  racionesPorBarqueta?: number
+  pesoPorRacionKg?: number | null
+}): EmbarquetadoCentro[] {
+  const capacidad = Math.max(1, Math.floor(params.racionesPorBarqueta ?? 10))
+
+  return params.centros
+    .map((centro) => {
+      const raciones = Math.max(0, Math.floor(params.pacientes[centro.id] ?? 0))
+      const barquetasCompletas = Math.floor(raciones / capacidad)
+      const racionesParcial = raciones % capacidad
+
+      return {
+        id: centro.id,
+        nombre: centro.nombre,
+        color: centro.color,
+        raciones,
+        envasesMonoporcion: raciones,
+        barquetasCompletas,
+        racionesParcial,
+        barquetasMultiporcion: barquetasCompletas + (racionesParcial > 0 ? 1 : 0),
+        pesoEstimadoKg: params.pesoPorRacionKg == null
+          ? null
+          : Math.round(params.pesoPorRacionKg * raciones * 100) / 100,
+      }
+    })
+    .filter((centro) => centro.raciones > 0)
 }

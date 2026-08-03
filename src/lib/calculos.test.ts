@@ -1,5 +1,5 @@
 import { describe, it, expect } from 'vitest'
-import { calcularProteina, calcularGuarnicion, calcularBandejasHorno, calcularDesgloseCentros, escalarIngredientes, calcularReparto } from './calculos'
+import { calcularProteina, calcularGuarnicion, calcularBandejasHorno, calcularDesgloseCentros, escalarIngredientes, calcularReparto, calcularPesoRecetaKg, calcularEmbarquetadoCentros } from './calculos'
 import { CENTROS } from '../data/centros'
 
 describe('calcularProteina', () => {
@@ -223,5 +223,34 @@ describe('escalarIngredientes', () => {
     expect(result[0].cantidad).toBe(414)
     expect(result[1].cantidad).toBe(13800)
     expect(result[2].cantidad).toBe(10350)
+  })
+})
+
+describe('calcularPesoRecetaKg', () => {
+  it('suma ingredientes expresados en kg y g', () => {
+    expect(calcularPesoRecetaKg([
+      { nombre: 'Papas', cantidad: 67.5, unidad: 'kg' },
+      { nombre: 'Sal', cantidad: 450, unidad: 'g' },
+    ])).toBe(67.95)
+  })
+})
+
+describe('calcularEmbarquetadoCentros', () => {
+  it('separa barquetas completas y parciales por centro', () => {
+    const result = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 120, candelaria: 30, parque: 50, centro: 100, hogara: 12, hogarb: 12 },
+      racionesPorBarqueta: 10,
+      pesoPorRacionKg: 0.25,
+    })
+
+    const hogarA = result.find((centro) => centro.id === 'hogara')
+    expect(hogarA).toMatchObject({
+      envasesMonoporcion: 12,
+      barquetasCompletas: 1,
+      racionesParcial: 2,
+      barquetasMultiporcion: 2,
+      pesoEstimadoKg: 3,
+    })
   })
 })

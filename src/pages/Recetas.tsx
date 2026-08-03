@@ -3,7 +3,9 @@ import { IconClock, IconBook, IconPlus, IconEdit, IconTrash, IconX, IconChefHat,
 import { useAppStore } from '../store/useAppStore'
 import { useRecetas, type Receta, type RecetaIngrediente, type CreateRecetaInput } from '../hooks/useRecetas'
 import { useHistorial } from '../hooks/useHistorial'
-import { escalarIngredientes } from '../lib/calculos'
+import { calcularEmbarquetadoCentros, calcularPesoRecetaKg, escalarIngredientes } from '../lib/calculos'
+import { CENTROS } from '../data/centros'
+import { FICHAS_REFERENCIA } from '../data/fichasRecetas'
 import ServicioToggle from '../components/calcular/ServicioToggle'
 import CentrosGrid from '../components/calcular/CentrosGrid'
 
@@ -134,6 +136,20 @@ export default function Recetas() {
       )
     : []
 
+  const pesoBaseKg = selectedReceta ? calcularPesoRecetaKg(selectedReceta.ingredientes) : null
+  const pesoPorRacionKg = selectedReceta && pesoBaseKg != null
+    ? pesoBaseKg / selectedReceta.raciones_base
+    : null
+  const embarquetado = selectedReceta
+    ? calcularEmbarquetadoCentros({
+        centros: CENTROS,
+        pacientes,
+        racionesPorBarqueta: 10,
+        pesoPorRacionKg,
+      })
+    : []
+  const totalBarquetas = embarquetado.reduce((total, centro) => total + centro.barquetasMultiporcion, 0)
+
   return (
     <>
       <div className="bg-surface border border-border rounded-xl p-[14px] mb-[10px] shadow-sm">
@@ -259,6 +275,53 @@ export default function Recetas() {
                           </tbody>
                         </table>
 
+                        <div className="mt-3 border-t border-border pt-3">
+                          <div className="flex items-start justify-between gap-3 mb-2">
+                            <div>
+                              <div className="text-[10px] font-semibold uppercase tracking-wider text-text3">
+                                Embarquetado por centro
+                              </div>
+                              <div className="text-[10px] text-text3 mt-1">
+                                Mono: 1 envase por ración · Multi: 10 raciones por barqueta
+                                {pesoPorRacionKg != null && ` · ${Math.round(pesoPorRacionKg * 1000)} g estimados/ración`}
+                              </div>
+                            </div>
+                            <div className="shrink-0 text-right">
+                              <div className="text-lg leading-none font-mono font-semibold text-accent">{totalBarquetas}</div>
+                              <div className="text-[9px] text-text3 mt-1">barquetas multi</div>
+                            </div>
+                          </div>
+
+                          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                            {embarquetado.map((centro) => (
+                              <div key={centro.id} className="bg-surface border border-border rounded-sm px-3 py-2">
+                                <div className="flex items-center justify-between gap-2">
+                                  <div className="flex items-center gap-1.5 min-w-0">
+                                    <span className="w-2 h-2 rounded-full shrink-0" style={{ background: centro.color }} />
+                                    <span className="text-xs font-semibold text-text truncate">{centro.nombre}</span>
+                                  </div>
+                                  <span className="text-xs font-mono font-semibold text-text">{centro.raciones} rac.</span>
+                                </div>
+                                <div className="mt-1 text-[10px] text-text2">
+                                  Mono: {centro.envasesMonoporcion} envases
+                                </div>
+                                <div className="text-[10px] text-text2">
+                                  Multi: {centro.barquetasMultiporcion} barq. (
+                                  {centro.barquetasCompletas > 0 && `${centro.barquetasCompletas} completas`}
+                                  {centro.barquetasCompletas > 0 && centro.racionesParcial > 0 && ' + '}
+                                  {centro.racionesParcial > 0 && `1 parcial de ${centro.racionesParcial}`}
+                                  )
+                                </div>
+                                {centro.pesoEstimadoKg != null && (
+                                  <div className="text-[10px] text-text3 mt-1">
+                                    Peso estimado del centro: {centro.pesoEstimadoKg} kg
+                                  </div>
+                                )}
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+
                         {receta.notas && (
                           <div className="mt-2 text-[11px] text-text3 italic">
                             {receta.notas}
@@ -294,6 +357,24 @@ export default function Recetas() {
               })}
             </div>
           )}
+
+          <details className="mt-4 border-t border-border pt-3 group">
+            <summary className="text-xs font-semibold text-text cursor-pointer select-none">
+              Gramajes y procedimientos de las fichas SJDD
+            </summary>
+            <div className="mt-3 space-y-3">
+              {FICHAS_REFERENCIA.map((ficha) => (
+                <div key={ficha.titulo} className="bg-surface2 rounded-sm p-3">
+                  <div className="text-xs font-semibold text-text mb-1.5">{ficha.titulo}</div>
+                  <ul className="space-y-1 pl-4 list-disc">
+                    {ficha.items.map((item) => (
+                      <li key={item} className="text-[11px] leading-relaxed text-text2">{item}</li>
+                    ))}
+                  </ul>
+                </div>
+              ))}
+            </div>
+          </details>
         </div>
       </div>
 
