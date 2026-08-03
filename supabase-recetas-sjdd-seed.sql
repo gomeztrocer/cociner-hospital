@@ -1,5 +1,5 @@
 -- Recetas transcritas de "Recetas San Juan de Dios.pdf".
--- El bloque es idempotente: actualiza estas tres recetas por nombre y reemplaza sus ingredientes.
+-- El bloque es idempotente: actualiza estas cuatro recetas por nombre y reemplaza sus ingredientes.
 
 DO $$
 DECLARE
@@ -116,4 +116,42 @@ BEGIN
     (v_receta_id, 'Tomillo manojo 100 g', 50, 'g', 9),
     (v_receta_id, 'Pimentón dulce bote PET dosif. 810 g Muñoz y Pujante', 100, 'g', 10),
     (v_receta_id, 'Sal fina de mesa 1 kg Emicela', 100, 'g', 11);
+
+  v_receta_id := NULL;
+  SELECT id INTO v_receta_id
+  FROM public.recetas
+  WHERE nombre = 'Arroz con pollo'
+  ORDER BY created_at
+  LIMIT 1;
+
+  IF v_receta_id IS NULL THEN
+    INSERT INTO public.recetas (nombre, servicio, raciones_base, temperatura, tiempo, notas)
+    VALUES (
+      'Arroz con pollo', NULL, 100, NULL, NULL,
+      'Propuesta inicial basada en la ficha de gramajes SJDD: 80 g de arroz seco, 100 g de pollo y 60 g de fritura o verduras por ración. Ajustar después de la primera prueba de cocina.'
+    )
+    RETURNING id INTO v_receta_id;
+  ELSE
+    UPDATE public.recetas
+    SET servicio = NULL,
+        raciones_base = 100,
+        temperatura = NULL,
+        tiempo = NULL,
+        notas = 'Propuesta inicial basada en la ficha de gramajes SJDD: 80 g de arroz seco, 100 g de pollo y 60 g de fritura o verduras por ración. Ajustar después de la primera prueba de cocina.',
+        activo = true,
+        updated_at = now()
+    WHERE id = v_receta_id;
+  END IF;
+
+  DELETE FROM public.receta_ingredientes WHERE receta_id = v_receta_id;
+  INSERT INTO public.receta_ingredientes (receta_id, nombre, cantidad, unidad, orden) VALUES
+    (v_receta_id, 'Arroz seco', 8, 'kg', 0),
+    (v_receta_id, 'Pollo', 10, 'kg', 1),
+    (v_receta_id, 'Cebolla', 2, 'kg', 2),
+    (v_receta_id, 'Pimiento', 1.3, 'kg', 3),
+    (v_receta_id, 'Zanahoria', 2.4, 'kg', 4),
+    (v_receta_id, 'Ajo', 0.15, 'kg', 5),
+    (v_receta_id, 'Cilantro', 0.05, 'kg', 6),
+    (v_receta_id, 'Pimentón', 0.05, 'kg', 7),
+    (v_receta_id, 'Sal', 0.05, 'kg', 8);
 END $$;
