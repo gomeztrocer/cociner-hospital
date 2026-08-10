@@ -1,20 +1,38 @@
 import { IconUsers } from '@tabler/icons-react'
 import { useAppStore } from '../../store/useAppStore'
-import { CENTROS } from '../../data/centros'
+import { calcularTotalComensales } from '../../lib/comensales'
+import { useComensalesDiarios } from '../../hooks/useComensalesDiarios'
+import ComensalesToolbar from './ComensalesToolbar'
 
 export default function CentrosGrid() {
   const servicio = useAppStore((s) => s.servicio)
+  const fecha = useAppStore((s) => s.fechaTrabajo)
+  const centros = useAppStore((s) => s.centros)
   const pacientes = useAppStore((s) => s.pacientes)
+  const disponibilidad = useAppStore((s) => s.disponibilidadPorServicio[servicio])
   const setPaciente = useAppStore((s) => s.setPaciente)
+  const { loading, saving, message, error, cargar, guardar, copiarAnterior } = useComensalesDiarios()
 
-  const total = Object.values(pacientes).reduce((a, b) => a + b, 0)
+  const centrosDisponibles = centros.filter((centro) => disponibilidad[centro.id] !== false)
+  const centrosSinServicio = centros.filter((centro) => disponibilidad[centro.id] === false)
+  const total = calcularTotalComensales(pacientes, disponibilidad)
   const barColor = servicio === 'almuerzo' ? '#1B5E3F' : '#1E3A5F'
   const servicioLabel = servicio === 'almuerzo' ? 'Almuerzo' : 'Cena'
 
   return (
     <>
+      <ComensalesToolbar
+        fecha={fecha}
+        loading={loading}
+        saving={saving}
+        message={message}
+        error={error}
+        onFechaChange={(nuevaFecha) => nuevaFecha && void cargar(nuevaFecha)}
+        onCopy={() => void copiarAnterior()}
+        onSave={() => void guardar()}
+      />
       <div className="grid grid-cols-2 gap-2 mb-1">
-        {CENTROS.map((centro) => (
+        {centrosDisponibles.map((centro) => (
           <div key={centro.id}>
             <div className="flex items-center gap-1 text-[11px] text-text2 mb-[3px]">
               <span
@@ -35,6 +53,12 @@ export default function CentrosGrid() {
           </div>
         ))}
       </div>
+
+      {centrosSinServicio.length > 0 && (
+        <div className="text-[11px] text-text3 mt-2">
+          Sin servicio de {servicio}: {centrosSinServicio.map((centro) => centro.nombre).join(', ')}.
+        </div>
+      )}
 
       <div
         className="flex justify-between items-center rounded-sm px-[14px] py-[10px] mt-[6px] text-white"

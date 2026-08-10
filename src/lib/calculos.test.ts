@@ -173,26 +173,27 @@ describe('calcularDesgloseCentros', () => {
   it('almuerzo con 2 unidades por ración', () => {
     const result = calcularDesgloseCentros({
       centros,
-      servicio: 'almuerzo',
+      pacientes: { sur: 99, candelaria: 120, parque: 50, centro: 100, hogara: 12, hogarb: 12, tamaragua: 0 },
       unidadesPorRacion: 2,
     })
 
     expect(result).toHaveLength(6)
     const sur = result.find((c) => c.nombre === 'Sur')
-    expect(sur?.pax).toBe(120)
-    expect(sur?.unidades).toBe(240)
+    expect(sur?.pax).toBe(99)
+    expect(sur?.unidades).toBe(198)
   })
 
   it('cena con 1 unidad por ración (Candelaria = 30)', () => {
     const result = calcularDesgloseCentros({
       centros,
-      servicio: 'cena',
+      pacientes: { sur: 120, candelaria: 30, parque: 50, centro: 100, hogara: 12, hogarb: 12, tamaragua: 7 },
       unidadesPorRacion: 1,
     })
 
     const candelaria = result.find((c) => c.nombre === 'Candelaria')
     expect(candelaria?.pax).toBe(30)
     expect(candelaria?.unidades).toBe(30)
+    expect(result.find((c) => c.nombre === 'Tamaragua')?.pax).toBe(7)
   })
 })
 

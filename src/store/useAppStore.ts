@@ -1,5 +1,11 @@
 import { create } from 'zustand'
-import { getPacientesPorServicio, CENTROS } from '../data/centros'
+import { type Centro } from '../data/centros'
+import {
+  crearEstadoComensalesFallback,
+  getFechaLocalTenerife,
+  type DisponibilidadPorServicio,
+  type PacientesPorServicio,
+} from '../lib/comensales'
 import {
   calcularProteina,
   calcularGuarnicion,
@@ -44,7 +50,11 @@ export interface UserSession {
 
 export interface AppState {
   servicio: 'almuerzo' | 'cena'
+  fechaTrabajo: string
+  centros: Centro[]
   pacientes: Record<string, number>
+  pacientesPorServicio: PacientesPorServicio
+  disponibilidadPorServicio: DisponibilidadPorServicio
   tabActivo: 'proteina' | 'guarnicion'
   proteinas: PreparacionProteina[]
   guarniciones: PreparacionGuarnicion[]
@@ -53,6 +63,12 @@ export interface AppState {
   user: UserSession | null
 
   setServicio: (s: 'almuerzo' | 'cena') => void
+  cargarComensalesDia: (
+    fecha: string,
+    centros: Centro[],
+    pacientes: PacientesPorServicio,
+    disponibilidad: DisponibilidadPorServicio,
+  ) => void
   setPaciente: (centroId: string, valor: number) => void
   setTab: (tab: 'proteina' | 'guarnicion') => void
 
@@ -128,9 +144,15 @@ function createEjemploGuarnicion(): PreparacionGuarnicion {
 
 // ── Store ──
 
+const estadoInicialComensales = crearEstadoComensalesFallback(getFechaLocalTenerife())
+
 export const useAppStore = create<AppState>((set, get) => ({
   servicio: 'almuerzo',
-  pacientes: getPacientesPorServicio('almuerzo'),
+  fechaTrabajo: estadoInicialComensales.fecha,
+  centros: estadoInicialComensales.centros,
+  pacientes: estadoInicialComensales.pacientes.almuerzo,
+  pacientesPorServicio: estadoInicialComensales.pacientes,
+  disponibilidadPorServicio: estadoInicialComensales.disponibilidad,
   tabActivo: 'proteina',
   proteinas: [createEjemploProteina()],
   guarniciones: [createEjemploGuarnicion()],
@@ -139,20 +161,37 @@ export const useAppStore = create<AppState>((set, get) => ({
   user: null,
 
   setServicio: (servicio) => {
-    set({
-      servicio,
-      pacientes: getPacientesPorServicio(servicio),
-    })
+    set((state) => ({ servicio, pacientes: state.pacientesPorServicio[servicio] }))
+    get().recalcularAsignaciones()
+  },
+
+  cargarComensalesDia: (fecha, centros, pacientesPorServicio, disponibilidadPorServicio) => {
+    set((state) => ({
+      fechaTrabajo: fecha,
+      centros,
+      pacientesPorServicio,
+      disponibilidadPorServicio,
+      pacientes: pacientesPorServicio[state.servicio],
+    }))
     get().recalcularAsignaciones()
   },
 
   setPaciente: (centroId, valor) => {
-    set((state) => ({
-      pacientes: {
-        ...state.pacientes,
-        [centroId]: Math.max(0, valor),
-      },
-    }))
+    set((state) => {
+      if (state.disponibilidadPorServicio[state.servicio][centroId] === false) return state
+      const pacientesServicio = {
+        ...state.pacientesPorServicio[state.servicio],
+        [centroId]: Math.max(0, Math.floor(valor)),
+      }
+      return {
+        pacientes: pacientesServicio,
+        pacientesPorServicio: {
+          ...state.pacientesPorServicio,
+          [state.servicio]: pacientesServicio,
+        },
+      }
+    })
+    get().recalcularAsignaciones()
   },
 
   setTab: (tab) => {
@@ -198,8 +237,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     })
 
     const desglose = calcularDesgloseCentros({
-      centros: CENTROS,
-      servicio: state.servicio,
+      centros: state.centros,
+      pacientes: state.pacientes,
       unidadesPorRacion: prep.unidadesPorRacion,
     })
 

@@ -28,6 +28,34 @@ export interface UsuarioAdminResponse {
   created_at: string
 }
 
+export interface ComensalesServicioResponse {
+  disponible: boolean
+  cantidad: number
+  guardado: boolean
+}
+
+export interface CentroComensalesResponse {
+  id: string
+  nombre: string
+  color: string
+  pax_almuerzo: number
+  pax_cena: number
+  almuerzo: ComensalesServicioResponse
+  cena: ComensalesServicioResponse
+}
+
+export interface ComensalesDiaResponse {
+  fecha: string
+  centros: CentroComensalesResponse[]
+  copiado_desde?: string
+}
+
+export interface ValorComensalesDia {
+  centro_id: string
+  almuerzo: number
+  cena: number
+}
+
 interface RequestOptions {
   token?: string
 }
@@ -85,4 +113,35 @@ export function adminUsersRequest<T>(
   payload: Record<string, unknown>,
 ): Promise<T> {
   return callFunction<T>('cociner-admin-users', payload, { token })
+}
+
+export function getComensalesDia(token: string, fecha: string): Promise<ComensalesDiaResponse> {
+  return callFunction<ComensalesDiaResponse>(
+    'cociner-comensales',
+    { action: 'get', fecha },
+    { token },
+  )
+}
+
+export function saveComensalesDia(
+  token: string,
+  fecha: string,
+  valores: ValorComensalesDia[],
+): Promise<ComensalesDiaResponse> {
+  return callFunction<ComensalesDiaResponse>(
+    'cociner-comensales',
+    { action: 'save', fecha, valores },
+    { token },
+  )
+}
+
+export function copyComensalesDiaAnterior(
+  token: string,
+  fecha: string,
+): Promise<ComensalesDiaResponse> {
+  return callFunction<ComensalesDiaResponse>(
+    'cociner-comensales',
+    { action: 'copy-previous', fecha },
+    { token },
+  )
 }

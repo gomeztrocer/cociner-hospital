@@ -136,19 +136,16 @@ export function calcularGuarnicion(params: {
 
 export function calcularDesgloseCentros(params: {
   centros: Centro[]
-  servicio: 'almuerzo' | 'cena'
+  pacientes: Record<string, number>
   unidadesPorRacion: number
 }): DesgloseCentro[] {
   return params.centros
-    .filter((c) => {
-      const pax = params.servicio === 'almuerzo' ? c.paxAlmuerzo : c.paxCena
-      return pax > 0
-    })
+    .filter((c) => (params.pacientes[c.id] ?? 0) > 0)
     .map((c) => ({
       nombre: c.nombre,
       color: c.color,
-      pax: params.servicio === 'almuerzo' ? c.paxAlmuerzo : c.paxCena,
-      unidades: params.unidadesPorRacion * (params.servicio === 'almuerzo' ? c.paxAlmuerzo : c.paxCena),
+      pax: params.pacientes[c.id] ?? 0,
+      unidades: params.unidadesPorRacion * (params.pacientes[c.id] ?? 0),
     }))
 }
 

@@ -13,6 +13,7 @@ export const CENTROS: Centro[] = [
   { id: 'centro', nombre: 'SJDD', color: '#8B4513', paxAlmuerzo: 100, paxCena: 100 },
   { id: 'hogara', nombre: 'Hogar A', color: '#991B1B', paxAlmuerzo: 12, paxCena: 12 },
   { id: 'hogarb', nombre: 'Hogar B', color: '#B45309', paxAlmuerzo: 12, paxCena: 12 },
+  { id: 'tamaragua', nombre: 'Tamaragua', color: '#0F766E', paxAlmuerzo: 0, paxCena: 0 },
 ]
 
 export function getPacientesPorServicio(

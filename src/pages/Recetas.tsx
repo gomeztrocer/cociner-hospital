@@ -4,7 +4,6 @@ import { useAppStore } from '../store/useAppStore'
 import { useRecetas, type Receta, type RecetaIngrediente, type CreateRecetaInput } from '../hooks/useRecetas'
 import { useHistorial } from '../hooks/useHistorial'
 import { calcularBolsasIngrediente, calcularEmbarquetadoCentros, calcularPesoRecetaKg, escalarIngredientes, extraerPesoRacionObjetivoG } from '../lib/calculos'
-import { CENTROS } from '../data/centros'
 import { FICHAS_REFERENCIA } from '../data/fichasRecetas'
 import ServicioToggle from '../components/calcular/ServicioToggle'
 import CentrosGrid from '../components/calcular/CentrosGrid'
@@ -17,6 +16,7 @@ const emptyIngrediente = (): Omit<RecetaIngrediente, 'id'> => ({
 
 export default function Recetas() {
   const pacientes = useAppStore((s) => s.pacientes)
+  const centros = useAppStore((s) => s.centros)
   const user = useAppStore((s) => s.user)
   const totalPacientes = Object.values(pacientes).reduce((a, b) => a + b, 0)
   const { recetas, loading, error, createReceta, updateReceta, deleteReceta } = useRecetas()
@@ -150,7 +150,7 @@ export default function Recetas() {
       : null
   const embarquetado = selectedReceta
     ? calcularEmbarquetadoCentros({
-        centros: CENTROS,
+        centros,
         pacientes,
         racionesPorBarqueta: 10,
         pesoPorRacionKg,
