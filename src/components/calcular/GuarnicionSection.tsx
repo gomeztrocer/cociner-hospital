@@ -1,355 +1,70 @@
-import { useState, useEffect, useCallback } from 'react'
-import { IconSnowflake, IconCalculator, IconX, IconCheck } from '@tabler/icons-react'
-import { useAppStore } from '../../store/useAppStore'
+import { useCallback, useEffect, useState } from 'react'
+import { IconX } from '@tabler/icons-react'
 import { GUARNICION_PRESETS } from '../../data/guarnicionPresets'
 import { detectarMerma } from '../../data/mermas'
-import { useHistorial } from '../../hooks/useHistorial'
+import { useAppStore } from '../../store/useAppStore'
+import type { PreparacionCatalogo } from '../../types/catalogo'
+import GuarnicionConfigFields from './GuarnicionConfigFields'
+import GuarnicionResultado from './GuarnicionResultado'
+import GuarnicionSelector from './GuarnicionSelector'
 
-interface GuarnicionSectionProps {
-  preparacionId: string
-  index: number
-}
+interface GuarnicionSectionProps { preparacionId: string; index: number }
 
 export default function GuarnicionSection({ preparacionId, index }: GuarnicionSectionProps) {
-  const prep = useAppStore((s) => s.guarniciones.find((g) => g.id === preparacionId))
-  const updateGuarnicion = useAppStore((s) => s.updateGuarnicion)
-  const removeGuarnicion = useAppStore((s) => s.removeGuarnicion)
-  const calcularGuarnicionPrep = useAppStore((s) => s.calcularGuarnicionPrep)
-  const resultado = useAppStore((s) => s.resultadosGuarniciones[preparacionId])
-  const totalPacientes = useAppStore((s) =>
-    Object.values(s.pacientes).reduce((a, b) => a + b, 0),
-  )
-
-  // Local state for inputs (fix: no overwrite while editing)
+  const prep = useAppStore((state) => state.guarniciones.find((item) => item.id === preparacionId))
+  const update = useAppStore((state) => state.updateGuarnicion)
+  const remove = useAppStore((state) => state.removeGuarnicion)
+  const calculate = useAppStore((state) => state.calcularGuarnicionPrep)
+  const resultado = useAppStore((state) => state.resultadosGuarniciones[preparacionId])
+  const total = useAppStore((state) => Object.values(state.pacientes).reduce((sum, value) => sum + value, 0))
   const [nombre, setNombre] = useState(prep?.nombre ?? '')
-  const [bolsaKg, setBolsaKg] = useState(String(prep?.bolsaKg ?? 2.5))
+  const [bolsa, setBolsa] = useState(String(prep?.bolsaKg ?? 2.5))
   const [merma, setMerma] = useState(String(prep?.merma ?? 20))
   const [gramos, setGramos] = useState(String(prep?.gramos ?? 120))
+  const [calculationError, setCalculationError] = useState<string | null>(null)
 
-  const [showCustom, setShowCustom] = useState(false)
-  const [guardado, setGuardado] = useState(false)
-  const user = useAppStore((s) => s.user)
-  const servicio = useAppStore((s) => s.servicio)
-  const { addRegistro } = useHistorial(user?.id)
-
-  // Sync store values to local state only when prep changes (e.g., preset applied)
   useEffect(() => {
-    if (prep) {
-      setNombre(prep.nombre)
-      setBolsaKg(String(prep.bolsaKg))
-      setMerma(String(prep.merma))
-      setGramos(String(prep.gramos))
-    }
+    if (!prep) return
+    setNombre(prep.nombre); setBolsa(String(prep.bolsaKg)); setMerma(prep.mermaDefinida ? String(prep.merma) : ''); setGramos(String(prep.gramos))
   }, [prep?.id]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const syncToStore = useCallback(() => {
+  const sync = useCallback(() => {
     if (!prep) return
-    updateGuarnicion(prep.id, {
-      nombre,
-      bolsaKg: parseFloat(bolsaKg) || 2.5,
-      merma: parseFloat(merma) || 0,
-      gramos: parseFloat(gramos) || 120,
-    })
-  }, [prep, nombre, bolsaKg, merma, gramos, updateGuarnicion])
-
-  const handleBlur = useCallback(() => {
-    // Restore defaults if empty
-    if (!bolsaKg.trim()) setBolsaKg('2.5')
-    if (!merma.trim()) setMerma('0')
-    if (!gramos.trim()) setGramos('120')
-    syncToStore()
-  }, [bolsaKg, merma, gramos, syncToStore])
+    update(prep.id, { nombre, bolsaKg: Number(bolsa) || 2.5, merma: Number(merma) || 0, mermaDefinida: merma.trim() !== '', gramos: Number(gramos) || 120 })
+  }, [prep, nombre, bolsa, merma, gramos, update])
 
   if (!prep) return null
-
-  const applyPreset = (presetName: string) => {
-    setNombre(presetName)
-
-    const m = detectarMerma(presetName, 'guar')
-    if (m.found) {
-      setMerma(String(m.merma))
-    }
-
-    setShowCustom(false)
-
-    // Sync to store immediately
-    updateGuarnicion(prep.id, {
-      nombre: presetName,
-      bolsaKg: 2.5,
-      merma: m.found ? m.merma : prep.merma,
-      gramos: 120,
-      mermaAuto: m.found,
-      mermaSource: m.found ? m.source : '',
-    })
+  const applyPreset = (name: string): void => {
+    if (!GUARNICION_PRESETS.includes(name)) return
+    const suggestion = detectarMerma(name, 'guar')
+    setNombre(name); setBolsa('2.5'); setGramos('120'); if (suggestion.found) setMerma(String(suggestion.merma))
+    update(prep.id, { nombre: name, bolsaKg: 2.5, merma: suggestion.found ? suggestion.merma : prep.merma, mermaDefinida: true, gramos: 120, mermaAuto: suggestion.found, mermaSource: suggestion.found ? suggestion.source : '' })
+  }
+  const applyCustom = (custom: PreparacionCatalogo, shouldCalculate: boolean): void => {
+    setNombre(custom.nombre); setBolsa(String(custom.pesoEnvaseKg ?? 2.5)); setGramos(String(custom.gramosPorRacion ?? 120)); setMerma(custom.mermaPorcentaje == null ? '' : String(custom.mermaPorcentaje))
+    update(prep.id, { nombre: custom.nombre, bolsaKg: custom.pesoEnvaseKg ?? 2.5, gramos: custom.gramosPorRacion ?? 120, merma: custom.mermaPorcentaje ?? 0, mermaDefinida: custom.mermaPorcentaje != null, mermaAuto: false, mermaSource: custom.mermaPorcentaje == null ? 'Merma sin definir' : (custom.mermaFuente ?? 'Merma guardada') })
+    setCalculationError(custom.mermaPorcentaje == null ? 'Preparación guardada. Define o acepta una merma para calcularla.' : null)
+    if (shouldCalculate) calculate(prep.id)
+  }
+  const changeMerma = (value: string): void => {
+    setMerma(value); setCalculationError(null)
+    update(prep.id, { mermaAuto: false, mermaSource: value.trim() ? 'Merma ajustada manualmente' : 'Merma sin definir' })
+  }
+  const handleCalculate = (): void => {
+    if (!merma.trim()) { setCalculationError('Define o acepta una merma antes de calcular esta guarnición.'); return }
+    setCalculationError(null); sync(); calculate(prep.id)
   }
 
-  const handleCalculate = () => {
-    syncToStore()
-    calcularGuarnicionPrep(prep.id)
-  }
-
-  const showResult = resultado && 'bolsas' in resultado
-
-    // Helper to format grams nicely
-  const fmtG = (g: number) =>
-    g >= 1000 ? `${(g / 1000).toFixed(1)} kg` : `${g} g`
-
-  return (
-    <div className="bg-surface2 border border-border rounded-sm mb-[10px] overflow-hidden">
-      {/* Header with name + patients */}
-      {!showCustom && (
-        <div className="bg-surface px-3 py-[10px] flex items-center gap-2 border-b border-border">
-          <input
-            type="text"
-            placeholder="Nombre guarnición"
-            value={nombre}
-            onChange={(e) => setNombre(e.target.value)}
-            onBlur={() => { syncToStore(); detectarMerma(nombre, 'guar') }}
-            className="flex-1 text-sm font-semibold border-none bg-transparent text-text placeholder:text-text3 min-w-0 outline-none"
-          />
-          {prep.pacientesAsignados > 0 && (
-            <span className="shrink-0 bg-accent-light text-accent font-mono text-[11px] px-2 py-[2px] rounded-sm leading-tight">
-              {prep.pacientesAsignados} / {totalPacientes} pac. ({Math.round(prep.pacientesAsignados / totalPacientes * 100)}%)
-            </span>
-          )}
-          <button
-            onClick={() => removeGuarnicion(prep.id)}
-            className="px-2 py-1 text-xs bg-transparent border border-border rounded-[6px] text-text3 cursor-pointer flex-shrink-0"
-          >
-            <IconX size={13} />
-          </button>
-        </div>
-      )}
-
-      <div className="p-3">
-        {/* Preset chips */}
-        <div className="sec-lbl mb-2">
-          <IconSnowflake size={13} style={{ verticalAlign: -2 }} />
-          {` Guarnición ${index + 1} — selección rápida`}
-        </div>
-
-        <div className="flex flex-wrap gap-[5px] mb-3">
-          {GUARNICION_PRESETS.map((g) => (
-            <button
-              key={g}
-              onClick={() => applyPreset(g)}
-              className="px-[10px] py-[4px] text-xs border border-border rounded-[20px] cursor-pointer bg-surface text-text2 transition-all hover:bg-accent-light hover:text-accent hover:border-accent"
-              style={
-                nombre === g
-                  ? { background: '#1B5E3F', color: '#fff', borderColor: '#1B5E3F' }
-                  : {}
-              }
-            >
-              {g}
-            </button>
-          ))}
-          <button
-            onClick={() => setShowCustom(true)}
-            className="px-[10px] py-[4px] text-xs border border-dashed border-border rounded-[20px] bg-surface text-accent cursor-pointer transition-all hover:bg-accent-light"
-          >
-            ＋ Otro
-          </button>
-        </div>
-
-        {/* Custom preparation form */}
-        {showCustom && (
-          <div className="bg-surface border border-border rounded-sm p-3 mb-3">
-            <div className="text-[11px] font-semibold text-text mb-2">Guarnición personalizada</div>
-            <div className="mb-2">
-              <label className="text-[11px] text-text2 block mb-[3px]">Nombre</label>
-              <input
-                type="text"
-                placeholder="Ej: Espinacas salteadas"
-                value={nombre}
-                onChange={(e) => setNombre(e.target.value)}
-                className="w-full px-[10px] py-[7px] text-sm border border-border rounded-sm bg-bg text-text"
-              />
-            </div>
-            <div className="grid grid-cols-3 gap-[7px] mb-2">
-              <div>
-                <label className="text-[11px] text-text2 block mb-[3px]">Bolsa (kg)</label>
-                <input
-                  type="number"
-                  min={0.1}
-                  step={0.5}
-                  value={bolsaKg}
-                  onChange={(e) => setBolsaKg(e.target.value)}
-                  onBlur={handleBlur}
-                  className="w-full px-[10px] py-[7px] text-sm border border-border rounded-sm bg-bg text-text"
-                />
-              </div>
-              <div>
-                <label className="text-[11px] text-text2 block mb-[3px]">Merma %</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={-300}
-                    max={80}
-                    value={merma}
-                    onChange={(e) => setMerma(e.target.value)}
-                    onBlur={handleBlur}
-                    className="w-full px-[10px] py-[7px] pr-12 text-sm border border-border rounded-sm bg-bg text-text"
-                    style={{ paddingRight: '48px' }}
-                  />
-                  <span className="absolute right-[6px] top-1/2 -translate-y-1/2 text-[9px] font-semibold px-[5px] py-[2px] rounded-[6px] tracking-wide pointer-events-none"
-                    style={{
-                      background: '#FEF3C7',
-                      color: '#B45309',
-                    }}
-                  >
-                    manual
-                  </span>
-                </div>
-                <div className="text-[10px] text-text3 mt-[2px] italic leading-tight">
-                  {prep.mermaSource}
-                </div>
-              </div>
-              <div>
-                <label className="text-[11px] text-text2 block mb-[3px]">g netos/rac.</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={gramos}
-                  onChange={(e) => setGramos(e.target.value)}
-                  onBlur={handleBlur}
-                  className="w-full px-[10px] py-[7px] text-sm border border-border rounded-sm bg-bg text-text"
-                />
-              </div>
-            </div>
-          </div>
-        )}
-
-        {/* Input fields */}
-        {!showCustom && (
-          <>
-            <div className="grid grid-cols-3 gap-[7px] mb-2">
-              <div className="field">
-                <label className="text-[11px] text-text2 block mb-[3px]">Bolsa (kg)</label>
-                <input
-                  type="number"
-                  min={0.1}
-                  step={0.5}
-                  value={bolsaKg}
-                  onChange={(e) => setBolsaKg(e.target.value)}
-                  onBlur={handleBlur}
-                  className="w-full px-[10px] py-[7px] text-sm border border-border rounded-sm bg-surface text-text"
-                />
-              </div>
-              <div className="field">
-                <label className="text-[11px] text-text2 block mb-[3px]">Merma %</label>
-                <div className="relative">
-                  <input
-                    type="number"
-                    min={-300}
-                    max={80}
-                    value={merma}
-                    onChange={(e) => setMerma(e.target.value)}
-                    onBlur={handleBlur}
-                    className="w-full px-[10px] py-[7px] pr-12 text-sm border border-border rounded-sm bg-surface text-text"
-                    style={{ paddingRight: '48px' }}
-                  />
-                  <span
-                    className="absolute right-[6px] top-1/2 -translate-y-1/2 text-[9px] font-semibold px-[5px] py-[2px] rounded-[6px] tracking-wide pointer-events-none"
-                    style={{
-                      background: prep.mermaAuto ? '#E8F3ED' : '#FEF3C7',
-                      color: prep.mermaAuto ? '#1B5E3F' : '#B45309',
-                    }}
-                  >
-                    {prep.mermaAuto ? 'auto' : 'manual'}
-                  </span>
-                </div>
-                <div className="text-[10px] text-text3 mt-[2px] italic leading-tight">
-                  {prep.mermaSource}
-                </div>
-              </div>
-              <div className="field">
-                <label className="text-[11px] text-text2 block mb-[3px]">g netos/rac.</label>
-                <input
-                  type="number"
-                  min={1}
-                  value={gramos}
-                  onChange={(e) => setGramos(e.target.value)}
-                  onBlur={handleBlur}
-                  className="w-full px-[10px] py-[7px] text-sm border border-border rounded-sm bg-surface text-text"
-                />
-              </div>
-            </div>
-          </>
-        )}
-
-        {/* Calcular button */}
-        <button
-          onClick={handleCalculate}
-          disabled={!prep || prep.pacientesAsignados === 0}
-          className="w-full py-[9px] text-xs font-semibold text-white border-none rounded-sm flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform disabled:opacity-50 disabled:cursor-not-allowed mt-2"
-          style={{ background: '#1B5E3F' }}
-        >
-          <IconCalculator size={14} />
-          <span>Calcular</span>
-        </button>
-
-        {/* Resultado inline */}
-        {showResult && (
-          <div className="mt-3 bg-surface border border-border rounded-sm p-3">
-            <div className="text-[10px] font-semibold uppercase tracking-wider text-text3 mb-[7px] flex items-center gap-[5px]">
-              <IconSnowflake size={12} />
-              Resultado
-            </div>
-
-            <div className="flex justify-between items-baseline py-1 border-b border-surface2">
-              <span className="text-xs text-text2">Bolsas a abrir</span>
-              <span className="text-lg font-mono font-semibold text-accent">
-                {resultado.bolsas}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-baseline py-1 border-b border-surface2">
-              <span className="text-xs text-text2">Peso bruto necesario</span>
-              <span className="text-sm font-medium text-text">
-                {fmtG(resultado.brutoNecesario)}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-baseline py-1 border-b border-surface2">
-              <span className="text-xs text-text2">Peso neto cocido</span>
-              <span className="text-sm font-medium text-text">
-                {fmtG(resultado.netoNecesario)}
-              </span>
-            </div>
-
-            <div className="flex justify-between items-baseline py-1">
-              <span className="text-xs text-text2">Sobrante</span>
-              <span className="text-xs font-medium text-accent">
-                {resultado.netoReal - resultado.netoNecesario > 0
-                  ? fmtG(resultado.netoReal - resultado.netoNecesario)
-                  : '0 g ✓'}
-              </span>
-            </div>
-
-            {guardado ? (
-              <div className="mt-2 flex items-center justify-center gap-1 text-xs font-semibold text-accent py-[7px]">
-                <IconCheck size={14} />
-                Preparación guardada ✓
-              </div>
-            ) : (
-              <button
-                onClick={async () => {
-                  const r = await addRegistro({
-                    plato: nombre || prep.nombre,
-                    servicio: servicio === 'almuerzo' ? 'Almuerzo' : 'Cena',
-                    raciones: totalPacientes,
-                    categoria: 'guarnicion',
-                  })
-                  if (!r.error) setGuardado(true)
-                }}
-                className="w-full mt-2 py-[7px] text-xs font-semibold border border-accent rounded-sm bg-accent-light text-accent cursor-pointer active:scale-[0.98] transition-transform"
-              >
-                Guardar como preparación
-              </button>
-            )}
-          </div>
-        )}
-      </div>
+  return <div className="mb-[10px] overflow-hidden rounded-sm border border-border bg-surface2">
+    <div className="flex items-center gap-2 border-b border-border bg-surface px-3 py-[10px]">
+      <input type="text" placeholder="Nombre guarnición" value={nombre} onChange={(event) => setNombre(event.target.value)} onBlur={sync} className="min-w-0 flex-1 bg-transparent text-sm font-semibold outline-none" />
+      {prep.pacientesAsignados > 0 && <span className="shrink-0 rounded-sm bg-accent-light px-2 py-1 font-mono text-[11px] text-accent">{prep.pacientesAsignados} / {total} pac.</span>}
+      <button type="button" aria-label="Quitar guarnición" onClick={() => remove(prep.id)} className="min-h-11 min-w-11 flex items-center justify-center rounded-sm border border-border text-text3"><IconX size={13} /></button>
     </div>
-  )
+    <div className="p-3">
+      <GuarnicionSelector index={index} selectedName={nombre} onPreset={applyPreset} onCustom={applyCustom} />
+      <GuarnicionConfigFields bolsaKg={bolsa} merma={merma} gramos={gramos} mermaAuto={prep.mermaAuto} mermaSource={prep.mermaSource} disabled={prep.pacientesAsignados === 0} error={calculationError} onBolsaKg={setBolsa} onMerma={changeMerma} onGramos={setGramos} onBlur={sync} onCalculate={handleCalculate} />
+      {resultado && <GuarnicionResultado nombre={nombre || prep.nombre} totalPacientes={total} resultado={resultado} />}
+    </div>
+  </div>
 }

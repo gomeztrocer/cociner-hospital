@@ -26,6 +26,7 @@ export interface PreparacionProteina {
   unidadesPorRacion: number
   nombreUnidad: string
   merma: number
+  mermaDefinida: boolean
   mermaAuto: boolean
   mermaSource: string
 }
@@ -35,6 +36,7 @@ export interface PreparacionGuarnicion {
   nombre: string
   bolsaKg: number
   merma: number
+  mermaDefinida: boolean
   mermaAuto: boolean
   mermaSource: string
   gramos: number
@@ -101,6 +103,7 @@ function createDefaultProteina(): PreparacionProteina {
     unidadesPorRacion: 1,
     nombreUnidad: 'piezas',
     merma: 25,
+    mermaDefinida: true,
     mermaAuto: false,
     mermaSource: 'Escribí el nombre para autocompletar',
   }
@@ -112,6 +115,7 @@ function createDefaultGuarnicion(): PreparacionGuarnicion {
     nombre: '',
     bolsaKg: 2.5,
     merma: 20,
+    mermaDefinida: true,
     mermaAuto: false,
     mermaSource: '',
     gramos: 120,
@@ -127,6 +131,7 @@ function createEjemploProteina(): PreparacionProteina {
     unidadesPorRacion: 2,
     nombreUnidad: 'muslos',
     merma: 30,
+    mermaDefinida: true,
     mermaAuto: true,
     mermaSource: 'Muslo/pernil horno ~30% (tabla mermas hospitalaria)',
   }
@@ -138,6 +143,7 @@ function createEjemploGuarnicion(): PreparacionGuarnicion {
     nombre: 'Arroz',
     bolsaKg: 2.5,
     merma: -200,
+    mermaDefinida: true,
     mermaAuto: true,
     mermaSource: 'Arroz: absorbe agua, triplica peso (factor ×3)',
     gramos: 120,

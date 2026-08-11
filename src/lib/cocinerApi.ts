@@ -60,7 +60,7 @@ interface RequestOptions {
   token?: string
 }
 
-async function callFunction<T>(
+export async function callFunction<T>(
   functionName: string,
   payload: Record<string, unknown>,
   options: RequestOptions = {},
