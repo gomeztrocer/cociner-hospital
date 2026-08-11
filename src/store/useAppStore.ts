@@ -4,6 +4,7 @@ import {
   crearEstadoComensalesFallback,
   getFechaLocalTenerife,
   type DisponibilidadPorServicio,
+  type DefinidosPorServicio,
   type PacientesPorServicio,
 } from '../lib/comensales'
 import {
@@ -55,6 +56,7 @@ export interface AppState {
   pacientes: Record<string, number>
   pacientesPorServicio: PacientesPorServicio
   disponibilidadPorServicio: DisponibilidadPorServicio
+  definidosPorServicio: DefinidosPorServicio
   tabActivo: 'proteina' | 'guarnicion'
   proteinas: PreparacionProteina[]
   guarniciones: PreparacionGuarnicion[]
@@ -68,8 +70,9 @@ export interface AppState {
     centros: Centro[],
     pacientes: PacientesPorServicio,
     disponibilidad: DisponibilidadPorServicio,
+    definidos: DefinidosPorServicio,
   ) => void
-  setPaciente: (centroId: string, valor: number) => void
+  setPaciente: (centroId: string, valor: number | null) => void
   setTab: (tab: 'proteina' | 'guarnicion') => void
 
   addProteina: (preset?: Partial<PreparacionProteina>) => void
@@ -153,6 +156,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   pacientes: estadoInicialComensales.pacientes.almuerzo,
   pacientesPorServicio: estadoInicialComensales.pacientes,
   disponibilidadPorServicio: estadoInicialComensales.disponibilidad,
+  definidosPorServicio: estadoInicialComensales.definidos,
   tabActivo: 'proteina',
   proteinas: [createEjemploProteina()],
   guarniciones: [createEjemploGuarnicion()],
@@ -165,12 +169,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().recalcularAsignaciones()
   },
 
-  cargarComensalesDia: (fecha, centros, pacientesPorServicio, disponibilidadPorServicio) => {
+  cargarComensalesDia: (fecha, centros, pacientesPorServicio, disponibilidadPorServicio, definidosPorServicio) => {
     set((state) => ({
       fechaTrabajo: fecha,
       centros,
       pacientesPorServicio,
       disponibilidadPorServicio,
+      definidosPorServicio,
       pacientes: pacientesPorServicio[state.servicio],
     }))
     get().recalcularAsignaciones()
@@ -181,13 +186,20 @@ export const useAppStore = create<AppState>((set, get) => ({
       if (state.disponibilidadPorServicio[state.servicio][centroId] === false) return state
       const pacientesServicio = {
         ...state.pacientesPorServicio[state.servicio],
-        [centroId]: Math.max(0, Math.floor(valor)),
+        [centroId]: valor == null ? 0 : Math.max(0, Math.floor(valor)),
       }
       return {
         pacientes: pacientesServicio,
         pacientesPorServicio: {
           ...state.pacientesPorServicio,
           [state.servicio]: pacientesServicio,
+        },
+        definidosPorServicio: {
+          ...state.definidosPorServicio,
+          [state.servicio]: {
+            ...state.definidosPorServicio[state.servicio],
+            [centroId]: valor != null,
+          },
         },
       }
     })

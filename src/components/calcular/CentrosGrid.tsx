@@ -10,6 +10,7 @@ export default function CentrosGrid() {
   const centros = useAppStore((s) => s.centros)
   const pacientes = useAppStore((s) => s.pacientes)
   const disponibilidad = useAppStore((s) => s.disponibilidadPorServicio[servicio])
+  const definidos = useAppStore((s) => s.definidosPorServicio[servicio])
   const setPaciente = useAppStore((s) => s.setPaciente)
   const { loading, saving, message, error, cargar, guardar, copiarAnterior } = useComensalesDiarios()
 
@@ -44,10 +45,12 @@ export default function CentrosGrid() {
             <input
               type="number"
               min={0}
-              value={pacientes[centro.id] ?? 0}
-              onChange={(e) =>
-                setPaciente(centro.id, parseInt(e.target.value) || 0)
-              }
+              value={definidos[centro.id] ? pacientes[centro.id] ?? 0 : ''}
+              placeholder="Sin cargar"
+              onChange={(e) => setPaciente(
+                centro.id,
+                e.target.value === '' ? null : parseInt(e.target.value, 10),
+              )}
               className="w-full px-[10px] py-[7px] text-[15px] font-mono font-medium text-center border border-border rounded-sm bg-surface text-text"
             />
           </div>

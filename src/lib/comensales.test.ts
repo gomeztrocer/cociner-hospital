@@ -22,6 +22,8 @@ describe('comensales diarios', () => {
     expect(estado.centros.some((centro) => centro.id === 'tamaragua')).toBe(true)
     expect(estado.pacientes.almuerzo).not.toBe(estado.pacientes.cena)
     expect(estado.pacientes.almuerzo.tamaragua).toBe(0)
+    expect(estado.definidos.almuerzo.tamaragua).toBe(false)
+    expect(estado.definidos.cena.sur).toBe(false)
   })
 
   it('excluye del total los centros sin servicio', () => {

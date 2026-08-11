@@ -3,6 +3,7 @@ import { IconSoup, IconCalculator, IconCheck } from '@tabler/icons-react'
 import { useAppStore } from '../../store/useAppStore'
 import { useHistorial } from '../../hooks/useHistorial'
 import { CHINOS_RECETAS, escalarReceta, type ResultadoBlando } from '../../data/blandas'
+import PedidoPapaCajas from './PedidoPapaCajas'
 
 const CHINO_OPTIONS = CHINOS_RECETAS.map((r) => ({ id: r.id, nombre: r.nombre, subtipo: r.subtipo }))
 const BARQUETAS_POR_GASTRO = 6
@@ -58,7 +59,6 @@ export default function TablaChinos() {
         </span>
       </div>
 
-      {/* Tipo selector */}
       <div className="flex flex-wrap gap-[5px] mb-3">
         {CHINO_OPTIONS.map((opt) => (
           <button
@@ -75,7 +75,6 @@ export default function TablaChinos() {
         ))}
       </div>
 
-      {/* Receta base */}
       {receta && (
         <div className="bg-surface2 rounded-sm p-3 mb-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-text3 mb-[6px]">
@@ -92,7 +91,6 @@ export default function TablaChinos() {
         </div>
       )}
 
-      {/* Input gastros + Calcular */}
       <div className="flex gap-2 mb-3">
         <input
           type="number"
@@ -118,7 +116,6 @@ export default function TablaChinos() {
         </p>
       )}
 
-      {/* Resultado */}
       {resultado && (
         <div className="bg-surface border border-border rounded-sm p-3 mb-3">
           <p className="text-[10px] font-semibold uppercase tracking-wider text-text3 mb-[6px]">
@@ -126,11 +123,16 @@ export default function TablaChinos() {
           </p>
           <div className="space-y-[2px] text-xs mb-2">
             {resultado.ingredientes.map((ing) => (
-              <div key={ing.nombre} className="flex justify-between items-baseline">
-                <span className="text-text">{ing.nombre}</span>
-                <span className="font-mono text-sm font-semibold text-accent">
-                  {fmtIngrediente(ing.cantidadBase, ing.unidad, ing.nota)}
-                </span>
+              <div key={ing.nombre}>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-text">{ing.nombre}</span>
+                  <span className="font-mono text-sm font-semibold text-accent">
+                    {fmtIngrediente(ing.cantidadBase, ing.unidad, ing.nota)}
+                  </span>
+                </div>
+                {ing.nombre === 'Papas congeladas' && (
+                  <PedidoPapaCajas bolsas={ing.cantidadBase} className="text-text3 text-right" />
+                )}
               </div>
             ))}
           </div>
@@ -142,7 +144,6 @@ export default function TablaChinos() {
         </div>
       )}
 
-      {/* Registrar */}
       {resultado && (
         guardado ? (
           <div className="flex items-center justify-center gap-1 text-xs font-semibold text-accent py-[7px]">

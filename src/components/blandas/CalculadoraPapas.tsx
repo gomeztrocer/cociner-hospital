@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { IconCarrot, IconCalculator } from '@tabler/icons-react'
 import { CHINOS_RECETAS, PURE_RECETAS } from '../../data/blandas'
+import PedidoPapaCajas from './PedidoPapaCajas'
 
-// Chinos: 3 bolsas papa por gastro
+// Chinos: 2 bolsas de papa + 2 bolsas de verdura por gastro
 const PAPAS_POR_GASTRO = CHINOS_RECETAS[0]!.ingredientes.find((i) => i.nombre === 'Papas congeladas')!.cantidadBase
 // Puré: 3 bolsas papa cada 2 barquetas (1.5 por barqueta)
 const PURE_RECETA = PURE_RECETAS[0]!
@@ -107,10 +108,16 @@ export default function CalculadoraPapas() {
             <span className="text-xs text-white/80">Chinos ({g} gastro{g !== 1 ? 's' : ''})</span>
             <span className="font-mono text-sm font-semibold">{Math.round(resultado.bolsasChino)} bolsas</span>
           </div>
+          {resultado.bolsasChino > 0 && (
+            <PedidoPapaCajas bolsas={resultado.bolsasChino} className="text-white/70 text-right" />
+          )}
           <div className="flex justify-between items-baseline">
             <span className="text-xs text-white/80">Puré ({b} barqueta{b !== 1 ? 's' : ''})</span>
             <span className="font-mono text-sm font-semibold">{resultado.bolsasPure} bolsas</span>
           </div>
+          {resultado.bolsasPure > 0 && (
+            <PedidoPapaCajas bolsas={resultado.bolsasPure} className="text-white/70 text-right" />
+          )}
           <div className="border-t border-white/20 mt-2 pt-2 flex justify-between items-baseline">
             <span className="text-sm font-semibold">Total</span>
             <div className="text-right">
@@ -118,6 +125,7 @@ export default function CalculadoraPapas() {
               <span className="font-mono text-xs text-white/70 ml-2">({resultado.kgTotal} kg)</span>
             </div>
           </div>
+          <PedidoPapaCajas bolsas={resultado.bolsasTotal} className="text-white/70 text-right mt-1" />
         </div>
       )}
     </div>

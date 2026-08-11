@@ -3,12 +3,14 @@ import { CENTROS, type Centro } from '../data/centros'
 export type Servicio = 'almuerzo' | 'cena'
 export type PacientesPorServicio = Record<Servicio, Record<string, number>>
 export type DisponibilidadPorServicio = Record<Servicio, Record<string, boolean>>
+export type DefinidosPorServicio = Record<Servicio, Record<string, boolean>>
 
 export interface EstadoComensalesDia {
   fecha: string
   centros: Centro[]
   pacientes: PacientesPorServicio
   disponibilidad: DisponibilidadPorServicio
+  definidos: DefinidosPorServicio
 }
 
 export function getFechaLocalTenerife(fecha = new Date()): string {
@@ -46,18 +48,18 @@ export function crearEstadoComensalesFallback(
 ): EstadoComensalesDia {
   const pacientes: PacientesPorServicio = { almuerzo: {}, cena: {} }
   const disponibilidad: DisponibilidadPorServicio = { almuerzo: {}, cena: {} }
+  const definidos: DefinidosPorServicio = { almuerzo: {}, cena: {} }
 
   for (const centro of centros) {
     for (const servicio of ['almuerzo', 'cena'] as const) {
       const disponible = centroTieneServicio(centro.id, servicio, fecha)
       disponibilidad[servicio][centro.id] = disponible
-      pacientes[servicio][centro.id] = disponible
-        ? servicio === 'almuerzo' ? centro.paxAlmuerzo : centro.paxCena
-        : 0
+      pacientes[servicio][centro.id] = 0
+      definidos[servicio][centro.id] = false
     }
   }
 
-  return { fecha, centros, pacientes, disponibilidad }
+  return { fecha, centros, pacientes, disponibilidad, definidos }
 }
 
 export function calcularTotalComensales(

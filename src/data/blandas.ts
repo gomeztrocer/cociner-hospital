@@ -26,6 +26,28 @@ export interface ResultadoBlando {
   observaciones: string[]
 }
 
+export interface PedidoPapaPorCajas {
+  bolsasNecesarias: number
+  cajasNecesarias: number
+  bolsasDisponibles: number
+  bolsasSobrantes: number
+}
+
+export const KG_POR_BOLSA_PAPA = 2.5
+export const BOLSAS_POR_CAJA_PAPA = 4
+
+export function calcularPedidoPapaPorCajas(bolsasNecesarias: number): PedidoPapaPorCajas {
+  const necesarias = Math.max(0, Math.round(bolsasNecesarias * 100) / 100)
+  const cajasNecesarias = Math.ceil(necesarias / BOLSAS_POR_CAJA_PAPA)
+  const bolsasDisponibles = cajasNecesarias * BOLSAS_POR_CAJA_PAPA
+  return {
+    bolsasNecesarias: necesarias,
+    cajasNecesarias,
+    bolsasDisponibles,
+    bolsasSobrantes: Math.round((bolsasDisponibles - necesarias) * 100) / 100,
+  }
+}
+
 // ── CHINOS — 1 gastro = 6 barquetas ──
 // Cada chino se prepara por separado: papas + verdura + cebolla
 
@@ -37,8 +59,8 @@ export const CHINOS_RECETAS: RecetaBlando[] = [
     subtipo: 'Zanahoria',
     barquetasBase: 6, // 1 gastro
     ingredientes: [
-      { nombre: 'Papas congeladas', cantidadBase: 3, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
-      { nombre: 'Zanahoria congelada', cantidadBase: 1, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
+      { nombre: 'Papas congeladas', cantidadBase: 2, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
+      { nombre: 'Zanahoria congelada', cantidadBase: 2, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
       { nombre: 'Cebolla', cantidadBase: 5, unidad: 'unidades' },
     ],
   },
@@ -49,8 +71,8 @@ export const CHINOS_RECETAS: RecetaBlando[] = [
     subtipo: 'Calabaza',
     barquetasBase: 6,
     ingredientes: [
-      { nombre: 'Papas congeladas', cantidadBase: 3, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
-      { nombre: 'Calabaza congelada', cantidadBase: 1, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
+      { nombre: 'Papas congeladas', cantidadBase: 2, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
+      { nombre: 'Calabaza congelada', cantidadBase: 2, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
       { nombre: 'Cebolla', cantidadBase: 5, unidad: 'unidades' },
     ],
   },
@@ -61,8 +83,8 @@ export const CHINOS_RECETAS: RecetaBlando[] = [
     subtipo: 'Calabacín',
     barquetasBase: 6,
     ingredientes: [
-      { nombre: 'Papas congeladas', cantidadBase: 3, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
-      { nombre: 'Calabacín congelado', cantidadBase: 1, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
+      { nombre: 'Papas congeladas', cantidadBase: 2, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
+      { nombre: 'Calabacín congelado', cantidadBase: 2, unidad: 'bolsas', nota: '2.5 kg/bolsa' },
       { nombre: 'Cebolla', cantidadBase: 5, unidad: 'unidades' },
     ],
   },

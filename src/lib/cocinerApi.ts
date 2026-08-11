@@ -30,7 +30,7 @@ export interface UsuarioAdminResponse {
 
 export interface ComensalesServicioResponse {
   disponible: boolean
-  cantidad: number
+  cantidad: number | null
   guardado: boolean
 }
 
@@ -52,8 +52,8 @@ export interface ComensalesDiaResponse {
 
 export interface ValorComensalesDia {
   centro_id: string
-  almuerzo: number
-  cena: number
+  almuerzo: number | null
+  cena: number | null
 }
 
 interface RequestOptions {

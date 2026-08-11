@@ -21,12 +21,16 @@ function aplicarRespuesta(response: ComensalesDiaResponse): void {
     response.fecha,
     centros,
     {
-      almuerzo: Object.fromEntries(response.centros.map((c) => [c.id, c.almuerzo.cantidad])),
-      cena: Object.fromEntries(response.centros.map((c) => [c.id, c.cena.cantidad])),
+      almuerzo: Object.fromEntries(response.centros.map((c) => [c.id, c.almuerzo.cantidad ?? 0])),
+      cena: Object.fromEntries(response.centros.map((c) => [c.id, c.cena.cantidad ?? 0])),
     },
     {
       almuerzo: Object.fromEntries(response.centros.map((c) => [c.id, c.almuerzo.disponible])),
       cena: Object.fromEntries(response.centros.map((c) => [c.id, c.cena.disponible])),
+    },
+    {
+      almuerzo: Object.fromEntries(response.centros.map((c) => [c.id, c.almuerzo.guardado])),
+      cena: Object.fromEntries(response.centros.map((c) => [c.id, c.cena.guardado])),
     },
   )
 }
@@ -40,6 +44,7 @@ export function useComensalesDiarios() {
   const fecha = useAppStore((state) => state.fechaTrabajo)
   const centros = useAppStore((state) => state.centros)
   const pacientesPorServicio = useAppStore((state) => state.pacientesPorServicio)
+  const definidosPorServicio = useAppStore((state) => state.definidosPorServicio)
   const [loading, setLoading] = useState(false)
   const [saving, setSaving] = useState(false)
   const [message, setMessage] = useState('')
@@ -51,7 +56,7 @@ export function useComensalesDiarios() {
     if (!token) {
       const fallback = crearEstadoComensalesFallback(nuevaFecha)
       useAppStore.getState().cargarComensalesDia(
-        fallback.fecha, fallback.centros, fallback.pacientes, fallback.disponibilidad,
+        fallback.fecha, fallback.centros, fallback.pacientes, fallback.disponibilidad, fallback.definidos,
       )
       return
     }
@@ -77,8 +82,12 @@ export function useComensalesDiarios() {
     try {
       const valores = centros.map((centro) => ({
         centro_id: centro.id,
-        almuerzo: pacientesPorServicio.almuerzo[centro.id] ?? 0,
-        cena: pacientesPorServicio.cena[centro.id] ?? 0,
+        almuerzo: definidosPorServicio.almuerzo[centro.id]
+          ? pacientesPorServicio.almuerzo[centro.id] ?? 0
+          : null,
+        cena: definidosPorServicio.cena[centro.id]
+          ? pacientesPorServicio.cena[centro.id] ?? 0
+          : null,
       }))
       aplicarRespuesta(await saveComensalesDia(token, fecha, valores))
       setMessage('Comensales guardados')

@@ -7,6 +7,7 @@ import {
   escalarReceta,
   type ResultadoBlando,
 } from '../../data/blandas'
+import PedidoPapaCajas from './PedidoPapaCajas'
 
 const PURE_RECETA = PURE_RECETAS[0]!
 
@@ -96,11 +97,16 @@ export default function TablaPure() {
           </p>
           <div className="space-y-[2px] text-xs mb-2">
             {resultado.ingredientes.map((ing) => (
-              <div key={ing.nombre} className="flex justify-between items-baseline">
-                <span className="text-text">{ing.nombre}</span>
-                <span className="font-mono text-sm font-semibold text-accent">
-                  {ing.cantidadBase} {ing.unidad} ({ing.nota})
-                </span>
+              <div key={ing.nombre}>
+                <div className="flex justify-between items-baseline">
+                  <span className="text-text">{ing.nombre}</span>
+                  <span className="font-mono text-sm font-semibold text-accent">
+                    {ing.cantidadBase} {ing.unidad} ({ing.nota})
+                  </span>
+                </div>
+                {ing.nombre === 'Papas congeladas' && (
+                  <PedidoPapaCajas bolsas={ing.cantidadBase} className="text-text3 text-right" />
+                )}
               </div>
             ))}
           </div>
