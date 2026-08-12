@@ -1,117 +1,172 @@
 import { useCallback, useEffect, useState } from 'react'
-import { supabase } from '../lib/supabase'
-
-// ── Types ──
+import { registrosRequest } from '../lib/cocinerApi'
+import { getFechaLocalTenerife } from '../lib/comensales'
+import { useAppStore } from '../store/useAppStore'
 
 export interface Registro {
   id: string
   usuario_id: string
+  usuario_nombre: string
   plato: string
   servicio: string
   raciones: number
   fecha: string
   notas: string | null
+  categoria: string
   created_at: string
+  updated_at: string | null
+}
+
+export interface RegistroInput {
+  plato: string
+  servicio: string
+  raciones: number
+  fecha?: string
+  notas?: string
+  categoria?: string
+}
+
+export interface RegistroUpdateInput {
+  id: string
+  plato: string
+  servicio: string
+  raciones: number
+  fecha: string
+  notas?: string
 }
 
 export interface UseHistorialReturn {
   registros: Registro[]
   loading: boolean
   error: string | null
-  addRegistro: (params: {
-    plato: string
-    servicio: string
-    raciones: number
-    notas?: string
-    categoria?: string
-  }) => Promise<{ error?: string }>
+  addRegistro: (params: RegistroInput) => Promise<{ error?: string }>
+  updateRegistro: (params: RegistroUpdateInput) => Promise<{ error?: string }>
+  deleteRegistro: (id: string) => Promise<{ error?: string }>
+  refresh: () => Promise<void>
 }
 
-// ── Hook ──
+function errorMessage(error: unknown): string {
+  return error instanceof Error ? error.message : 'Error de conexión'
+}
 
-export function useHistorial(usuarioId: string | undefined): UseHistorialReturn {
+function validateRegistro(params: Omit<RegistroInput, 'categoria'> & { fecha: string }): string | null {
+  if (!params.plato.trim()) return 'Escribí el nombre del plato'
+  if (!Number.isInteger(params.raciones) || params.raciones < 1) {
+    return 'Las raciones deben ser al menos 1'
+  }
+  if (!['Almuerzo', 'Cena'].includes(params.servicio)) return 'Seleccioná un servicio válido'
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(params.fecha)) return 'Seleccioná una fecha válida'
+  if (params.fecha > getFechaLocalTenerife()) return 'La fecha no puede ser futura'
+  return null
+}
+
+export function useHistorial(
+  usuarioId: string | undefined,
+  fecha = getFechaLocalTenerife(),
+  incluirTodos = false,
+): UseHistorialReturn {
+  const token = useAppStore((state) => state.user?.token)
   const [registros, setRegistros] = useState<Registro[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchRegistrosHoy = useCallback(async () => {
-    if (!usuarioId) return
+  const fetchRegistros = useCallback(async () => {
+    if (!usuarioId || !token) {
+      setRegistros([])
+      return
+    }
 
     try {
       setLoading(true)
       setError(null)
-
-      const { data, error: rpcError } = await supabase.rpc('obtener_registros_hoy', {
-        p_usuario_id: usuarioId,
+      const response = await registrosRequest<{ registros: Registro[] }>(token, {
+        action: 'list',
+        fecha,
+        incluir_todos: incluirTodos,
       })
-
-      if (rpcError) {
-        console.error('🔍 Error fetching today\'s registros:', rpcError)
-        setError('Error al cargar el historial')
-        return
-      }
-
-      setRegistros((data as Registro[]) ?? [])
-    } catch (err) {
-      console.error('🔍 Error in fetchRegistrosHoy:', err)
-      setError('Error de conexión')
+      setRegistros(response.registros)
+    } catch (requestError) {
+      console.error('Error fetching registros:', requestError)
+      setError(errorMessage(requestError))
     } finally {
       setLoading(false)
     }
-  }, [usuarioId])
+  }, [usuarioId, token, fecha, incluirTodos])
 
-  // Fetch on mount
   useEffect(() => {
-    fetchRegistrosHoy()
-  }, [fetchRegistrosHoy])
+    void fetchRegistros()
+  }, [fetchRegistros])
 
-  const addRegistro = useCallback(
-    async (params: {
-      plato: string
-      servicio: string
-      raciones: number
-      notas?: string
-      categoria?: string
-    }): Promise<{ error?: string }> => {
-      if (!usuarioId) {
-        return { error: 'Usuario no autenticado' }
-      }
+  const addRegistro = useCallback(async (params: RegistroInput): Promise<{ error?: string }> => {
+    if (!usuarioId || !token) return { error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }
 
-      const { plato, servicio, raciones, notas, categoria } = params
+    const fechaRegistro = params.fecha ?? fecha
+    const validationError = validateRegistro({ ...params, fecha: fechaRegistro })
+    if (validationError) return { error: validationError }
 
-      if (!plato.trim()) {
-        return { error: 'Escribí el nombre del plato' }
-      }
-      if (raciones < 1) {
-        return { error: 'Las raciones deben ser al menos 1' }
-      }
+    try {
+      await registrosRequest(token, {
+        action: 'create',
+        plato: params.plato.trim(),
+        servicio: params.servicio,
+        raciones: params.raciones,
+        fecha: fechaRegistro,
+        notas: params.notas ?? null,
+        categoria: params.categoria ?? 'manual',
+      })
+      await fetchRegistros()
+      return {}
+    } catch (requestError) {
+      console.error('Error inserting registro:', requestError)
+      return { error: errorMessage(requestError) }
+    }
+  }, [usuarioId, token, fecha, fetchRegistros])
 
-      try {
-        const { error: rpcError } = await supabase.rpc('insertar_registro', {
-          p_usuario_id: usuarioId,
-          p_plato: plato.trim(),
-          p_servicio: servicio,
-          p_raciones: raciones,
-          p_notas: notas ?? null,
-          p_categoria: categoria ?? 'manual',
-        })
+  const updateRegistro = useCallback(async (params: RegistroUpdateInput): Promise<{ error?: string }> => {
+    if (!usuarioId || !token) return { error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }
 
-        if (rpcError) {
-          console.error('🔍 Error inserting registro:', rpcError)
-          return { error: 'Error al guardar el registro' }
-        }
+    const validationError = validateRegistro(params)
+    if (validationError) return { error: validationError }
 
-        // Refresh the list after successful insert
-        await fetchRegistrosHoy()
+    try {
+      await registrosRequest(token, {
+        action: 'update',
+        registro_id: params.id,
+        plato: params.plato.trim(),
+        servicio: params.servicio,
+        raciones: params.raciones,
+        fecha: params.fecha,
+        notas: params.notas ?? null,
+      })
+      await fetchRegistros()
+      return {}
+    } catch (requestError) {
+      console.error('Error updating registro:', requestError)
+      return { error: errorMessage(requestError) }
+    }
+  }, [usuarioId, token, fetchRegistros])
 
-        return {}
-      } catch (err) {
-        console.error('🔍 Error in addRegistro:', err)
-        return { error: 'Error de conexión' }
-      }
-    },
-    [usuarioId, fetchRegistrosHoy],
-  )
+  const deleteRegistro = useCallback(async (id: string): Promise<{ error?: string }> => {
+    if (!usuarioId || !token) return { error: 'Tu sesión ha caducado. Inicia sesión de nuevo.' }
+    if (!id) return { error: 'Registro no válido' }
 
-  return { registros, loading, error, addRegistro }
+    try {
+      await registrosRequest(token, { action: 'delete', registro_id: id })
+      await fetchRegistros()
+      return {}
+    } catch (requestError) {
+      console.error('Error deleting registro:', requestError)
+      return { error: errorMessage(requestError) }
+    }
+  }, [usuarioId, token, fetchRegistros])
+
+  return {
+    registros,
+    loading,
+    error,
+    addRegistro,
+    updateRegistro,
+    deleteRegistro,
+    refresh: fetchRegistros,
+  }
 }

@@ -1,6 +1,20 @@
 import { describe, it, expect } from 'vitest'
-import { calcularProteina, calcularGuarnicion, calcularBandejasHorno, calcularDesgloseCentros, escalarIngredientes, calcularReparto, calcularPesoRecetaKg, calcularEmbarquetadoCentros, calcularBolsasIngrediente, extraerPesoRacionObjetivoG } from './calculos'
+import {
+  calcularBandejasHorno,
+  calcularBolsasIngrediente,
+  calcularCoberturaGuarniciones,
+  calcularDesgloseCentros,
+  calcularEmbarquetadoCentros,
+  calcularGuarnicion,
+  calcularPesoRecetaKg,
+  calcularProteina,
+  escalarIngredientes,
+  extraerPesoRacionObjetivoG,
+  obtenerGramajeSugeridoGuarnicion,
+  obtenerRacionesPorBarquetaGuarnicion,
+} from './calculos'
 import { CENTROS } from '../data/centros'
+import { crearEstadoComensalesFallback } from './comensales'
 
 describe('calcularProteina', () => {
   it('albóndigas: 5 × 414 = 2070 → CEIL(2070/52) = 40 cajas', () => {
@@ -71,6 +85,8 @@ describe('calcularGuarnicion', () => {
     })
 
     expect(result.netoNecesario).toBe(6000)
+    expect(result.totalPacientes).toBe(50)
+    expect(result.racionG).toBe(120)
     expect(result.bolsas).toBe(4)
     // brutoReal = 4 × 2500 = 10000g
     // netoReal = 10000 × (1 - 0.22) = 7800g
@@ -103,6 +119,8 @@ describe('calcularGuarnicion', () => {
     })
 
     expect(result.netoNecesario).toBe(24840)
+    expect(result.totalPacientes).toBe(414)
+    expect(result.racionG).toBe(60)
     expect(result.bolsas).toBe(13)
   })
 
@@ -122,29 +140,19 @@ describe('calcularGuarnicion', () => {
   })
 })
 
-describe('calcularReparto', () => {
-  it('1 guarnición = 100% pacientes', () => {
-    expect(calcularReparto(414, 1)).toEqual([414])
+describe('reglas operativas de guarniciones', () => {
+  it('una guarnición cubre a todos los comensales y sugiere 120 g', () => {
+    expect(calcularCoberturaGuarniciones(100, 1)).toEqual([100])
+    expect(obtenerGramajeSugeridoGuarnicion(1)).toBe(120)
   })
 
-  it('2 guarniciones = 50% cada una', () => {
-    expect(calcularReparto(414, 2)).toEqual([207, 207])
+  it('dos guarniciones cubren ambas a todos los comensales y sugieren 60 g cada una', () => {
+    expect(calcularCoberturaGuarniciones(100, 2)).toEqual([100, 100])
+    expect(obtenerGramajeSugeridoGuarnicion(2)).toBe(60)
   })
 
-  it('3 guarniciones = división exacta', () => {
-    expect(calcularReparto(414, 3)).toEqual([138, 138, 138])
-  })
-
-  it('3 guarniciones con sobrante — primera absorbe', () => {
-    expect(calcularReparto(415, 3)).toEqual([139, 138, 138])
-  })
-
-  it('2 guarniciones con sobrante — primera absorbe', () => {
-    expect(calcularReparto(101, 2)).toEqual([51, 50])
-  })
-
-  it('0 pacientes = todo ceros', () => {
-    expect(calcularReparto(0, 3)).toEqual([0, 0, 0])
+  it('limita la cobertura operativa a un máximo de dos guarniciones', () => {
+    expect(calcularCoberturaGuarniciones(100, 3)).toEqual([100, 100])
   })
 })
 
@@ -247,6 +255,41 @@ describe('extraerPesoRacionObjetivoG', () => {
 })
 
 describe('calcularEmbarquetadoCentros', () => {
+  it('una guarnición asigna todas las barquetas del centro a esa guarnición', () => {
+    const racionesPorBarqueta = obtenerRacionesPorBarquetaGuarnicion(1)
+    const result = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 120 },
+      racionesPorBarqueta,
+    })
+
+    expect(racionesPorBarqueta).toBe(10)
+    expect(result[0]).toMatchObject({
+      raciones: 120,
+      barquetasCompletas: 12,
+      barquetasMultiporcion: 12,
+    })
+  })
+
+  it('dos guarniciones reparten por igual las barquetas sin repartir los comensales', () => {
+    const racionesPorBarqueta = obtenerRacionesPorBarquetaGuarnicion(2)
+    const arroz = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 120 },
+      racionesPorBarqueta,
+    })
+    const menestra = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 120 },
+      racionesPorBarqueta,
+    })
+
+    expect(racionesPorBarqueta).toBe(20)
+    expect(arroz[0]).toMatchObject({ raciones: 120, barquetasMultiporcion: 6 })
+    expect(menestra[0]).toMatchObject({ raciones: 120, barquetasMultiporcion: 6 })
+    expect(arroz[0].barquetasMultiporcion + menestra[0].barquetasMultiporcion).toBe(12)
+  })
+
   it('separa barquetas completas y parciales por centro', () => {
     const result = calcularEmbarquetadoCentros({
       centros: CENTROS,
@@ -263,6 +306,89 @@ describe('calcularEmbarquetadoCentros', () => {
       barquetasMultiporcion: 2,
       pesoEstimadoKg: 3,
     })
+  })
+
+  it('calcula barquetas completas sin crear una parcial vacía', () => {
+    const result = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 20 },
+    })
+
+    expect(result).toHaveLength(1)
+    expect(result[0]).toMatchObject({
+      raciones: 20,
+      barquetasCompletas: 2,
+      racionesParcial: 0,
+      barquetasMultiporcion: 2,
+    })
+  })
+
+  it('26 raciones producen 2 completas y 1 parcial de 6', () => {
+    const result = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 26 },
+    })
+
+    expect(result[0]).toMatchObject({
+      raciones: 26,
+      barquetasCompletas: 2,
+      racionesParcial: 6,
+      barquetasMultiporcion: 3,
+    })
+  })
+
+  it('redondea independientemente por centro', () => {
+    const result = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 26, candelaria: 11 },
+    })
+
+    expect(result.find((centro) => centro.id === 'sur')?.barquetasMultiporcion).toBe(3)
+    expect(result.find((centro) => centro.id === 'candelaria')?.barquetasMultiporcion).toBe(2)
+    expect(result.reduce((total, centro) => total + centro.barquetasMultiporcion, 0)).toBe(5)
+  })
+
+  it('usa los comensales diarios reales de Almuerzo y Cena, incluida Tamaragua', () => {
+    const almuerzo = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 26, candelaria: 11, tamaragua: 7 },
+    })
+    const cena = calcularEmbarquetadoCentros({
+      centros: CENTROS,
+      pacientes: { sur: 19, candelaria: 4, tamaragua: 13 },
+    })
+
+    expect(almuerzo.map(({ id, raciones }) => ({ id, raciones }))).toEqual([
+      { id: 'sur', raciones: 26 },
+      { id: 'candelaria', raciones: 11 },
+      { id: 'tamaragua', raciones: 7 },
+    ])
+    expect(cena.find((centro) => centro.id === 'candelaria')).toMatchObject({
+      raciones: 4,
+      barquetasCompletas: 0,
+      racionesParcial: 4,
+      barquetasMultiporcion: 1,
+    })
+    expect(cena.find((centro) => centro.id === 'tamaragua')?.raciones).toBe(13)
+  })
+
+  it('excluye un centro sin servicio aunque conserve una cantidad previa', () => {
+    const estadoMartes = crearEstadoComensalesFallback('2026-08-11')
+    const estadoMiercoles = crearEstadoComensalesFallback('2026-08-12')
+    const cenaMartes = calcularEmbarquetadoCentros({
+      centros: estadoMartes.centros,
+      pacientes: { sur: 26, hogara: 12 },
+      disponibilidad: estadoMartes.disponibilidad.cena,
+    })
+    const cenaMiercoles = calcularEmbarquetadoCentros({
+      centros: estadoMiercoles.centros,
+      pacientes: { sur: 26, hogarb: 12 },
+      disponibilidad: estadoMiercoles.disponibilidad.cena,
+    })
+
+    expect(cenaMartes.find((centro) => centro.id === 'sur')?.raciones).toBe(26)
+    expect(cenaMartes.some((centro) => centro.id === 'hogara')).toBe(false)
+    expect(cenaMiercoles.some((centro) => centro.id === 'hogarb')).toBe(false)
   })
 })
 

@@ -2,6 +2,7 @@ import { create } from 'zustand'
 import { type Centro } from '../data/centros'
 import {
   crearEstadoComensalesFallback,
+  calcularTotalComensales,
   getFechaLocalTenerife,
   type DisponibilidadPorServicio,
   type DefinidosPorServicio,
@@ -11,7 +12,8 @@ import {
   calcularProteina,
   calcularGuarnicion,
   calcularDesgloseCentros,
-  calcularReparto,
+  calcularCoberturaGuarniciones,
+  obtenerGramajeSugeridoGuarnicion,
   type ProteinaResult,
   type GuarnicionResult,
   type DesgloseCentro,
@@ -40,6 +42,7 @@ export interface PreparacionGuarnicion {
   mermaAuto: boolean
   mermaSource: string
   gramos: number
+  gramosManual: boolean
   pacientesAsignados: number
 }
 
@@ -119,6 +122,7 @@ function createDefaultGuarnicion(): PreparacionGuarnicion {
     mermaAuto: false,
     mermaSource: '',
     gramos: 120,
+    gramosManual: false,
     pacientesAsignados: 0,
   }
 }
@@ -147,6 +151,7 @@ function createEjemploGuarnicion(): PreparacionGuarnicion {
     mermaAuto: true,
     mermaSource: 'Arroz: absorbe agua, triplica peso (factor ×3)',
     gramos: 120,
+    gramosManual: false,
     pacientesAsignados: 0,
   }
 }
@@ -270,7 +275,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   addGuarnicion: (preset) => {
     const state = get()
-    if (state.guarniciones.length >= 3) return  // max 3
+    if (state.guarniciones.length >= 2) return
     set((s) => {
       const nueva = createDefaultGuarnicion()
       if (preset) Object.assign(nueva, preset)
@@ -291,6 +296,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       guarniciones: state.guarniciones.map((g) =>
         g.id === id ? { ...g, ...changes } : g,
       ),
+      resultadosGuarniciones: {
+        ...state.resultadosGuarniciones,
+        [id]: null,
+      },
     }))
   },
 
@@ -316,12 +325,17 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   recalcularAsignaciones: () => {
     const state = get()
-    const total = Object.values(state.pacientes).reduce((a, b) => a + b, 0)
-    const shares = calcularReparto(total, state.guarniciones.length)
+    const total = calcularTotalComensales(
+      state.pacientes,
+      state.disponibilidadPorServicio[state.servicio],
+    )
+    const coberturas = calcularCoberturaGuarniciones(total, state.guarniciones.length)
+    const gramosSugeridos = obtenerGramajeSugeridoGuarnicion(state.guarniciones.length)
     set({
       guarniciones: state.guarniciones.map((g, i) => ({
         ...g,
-        pacientesAsignados: shares[i] ?? total,
+        gramos: g.gramosManual ? g.gramos : gramosSugeridos,
+        pacientesAsignados: coberturas[i] ?? total,
       })),
       // Clear stale results — old cálculos ya no corresponden
       resultadosGuarniciones: {},
@@ -341,5 +355,5 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 }))
 
-// Initialize reparto — la guarnición por defecto arranca con pacientesAsignados correctos
+// Inicializa la cobertura completa y el gramaje habitual de la primera guarnición.
 useAppStore.getState().recalcularAsignaciones()

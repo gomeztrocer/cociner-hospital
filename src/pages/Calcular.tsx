@@ -18,6 +18,7 @@ export default function Calcular() {
   const resetResultados = useAppStore((s) => s.resetResultados)
 
   const total = Object.values(pacientes).reduce((a, b) => a + b, 0)
+  const totalGuarniciones = guarniciones[0]?.pacientesAsignados ?? 0
   const isAlmuerzo = servicio === 'almuerzo'
   const accentColor = isAlmuerzo ? '#1B5E3F' : '#1E3A5F'
 
@@ -90,7 +91,7 @@ export default function Calcular() {
           {tabActivo === 'guarnicion' && (
             <>
               <div className="text-[11px] text-text2 mb-3">
-                {total} pacientes — {isAlmuerzo ? 'Almuerzo' : 'Cena'}
+                {totalGuarniciones} pacientes — {isAlmuerzo ? 'Almuerzo' : 'Cena'}
               </div>
 
               <div id="lista-guarniciones">
@@ -99,7 +100,7 @@ export default function Calcular() {
                 ))}
               </div>
 
-              {guarniciones.length < 3 && (
+              {guarniciones.length < 2 && (
                 <button
                   onClick={() => addGuarnicion()}
                   className="w-full py-[9px] text-xs bg-transparent border border-dashed border-border rounded-sm text-text2 cursor-pointer mt-1 hover:bg-accent-light hover:text-accent hover:border-accent transition-colors"

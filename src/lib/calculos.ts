@@ -12,6 +12,8 @@ export interface ProteinaResult {
 }
 
 export interface GuarnicionResult {
+  totalPacientes: number
+  racionG: number
   netoNecesario: number
   brutoNecesario: number
   netoReal: number
@@ -69,18 +71,31 @@ export function calcularProteina(params: {
   return { unidadesNecesarias, cajasAbrir, unidadesDisponibles, sobrante, sobranteRaciones, mermaP }
 }
 
-// ── REPARTO DE PACIENTES ENTRE GUARNICIONES ──
+// ── COBERTURA Y GRAMAJE DE GUARNICIONES ──
 
-export function calcularReparto(
+export const GRAMAJE_GUARNICION_UNICA_G = 120
+export const GRAMAJE_GUARNICION_DOBLE_G = 60
+export const RACIONES_POR_BARQUETA = 10
+
+export function obtenerRacionesPorBarquetaGuarnicion(cantidad: number): number {
+  return cantidad === 2
+    ? RACIONES_POR_BARQUETA * 2
+    : RACIONES_POR_BARQUETA
+}
+
+export function obtenerGramajeSugeridoGuarnicion(cantidad: number): number {
+  return cantidad === 2
+    ? GRAMAJE_GUARNICION_DOBLE_G
+    : GRAMAJE_GUARNICION_UNICA_G
+}
+
+export function calcularCoberturaGuarniciones(
   totalPacientes: number,
   cantidad: number,
 ): number[] {
-  if (cantidad <= 1) return [totalPacientes]
-  const base = Math.floor(totalPacientes / cantidad)
-  const resto = totalPacientes % cantidad
-  return Array.from({ length: cantidad }, (_, i) =>
-    i === 0 ? base + resto : base,
-  )
+  const cantidadOperativa = Math.min(2, Math.max(0, Math.floor(cantidad)))
+  const pacientes = Math.max(0, Math.floor(totalPacientes))
+  return Array.from({ length: cantidadOperativa }, () => pacientes)
 }
 
 // ── BANDEJAS DE HORNO ──
@@ -129,7 +144,16 @@ export function calcularGuarnicion(params: {
 
   const sobrante = Math.round(netoReal - netoNecesario)
 
-  return { netoNecesario, brutoNecesario, netoReal, bolsas, sobrante, mermaP }
+  return {
+    totalPacientes,
+    racionG,
+    netoNecesario,
+    brutoNecesario,
+    netoReal,
+    bolsas,
+    sobrante,
+    mermaP,
+  }
 }
 
 // ── DESGLOSE POR CENTRO ──
@@ -230,14 +254,17 @@ export function extraerPesoRacionObjetivoG(notas: string | null): number | null 
 export function calcularEmbarquetadoCentros(params: {
   centros: Centro[]
   pacientes: Record<string, number>
+  disponibilidad?: Record<string, boolean>
   racionesPorBarqueta?: number
   pesoPorRacionKg?: number | null
 }): EmbarquetadoCentro[] {
-  const capacidad = Math.max(1, Math.floor(params.racionesPorBarqueta ?? 10))
+  const capacidad = Math.max(1, Math.floor(params.racionesPorBarqueta ?? RACIONES_POR_BARQUETA))
 
   return params.centros
     .map((centro) => {
-      const raciones = Math.max(0, Math.floor(params.pacientes[centro.id] ?? 0))
+      const raciones = params.disponibilidad?.[centro.id] === false
+        ? 0
+        : Math.max(0, Math.floor(params.pacientes[centro.id] ?? 0))
       const barquetasCompletas = Math.floor(raciones / capacidad)
       const racionesParcial = raciones % capacidad
 

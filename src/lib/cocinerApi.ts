@@ -115,6 +115,13 @@ export function adminUsersRequest<T>(
   return callFunction<T>('cociner-admin-users', payload, { token })
 }
 
+export function registrosRequest<T>(
+  token: string,
+  payload: Record<string, unknown>,
+): Promise<T> {
+  return callFunction<T>('cociner-registros', payload, { token })
+}
+
 export function getComensalesDia(token: string, fecha: string): Promise<ComensalesDiaResponse> {
   return callFunction<ComensalesDiaResponse>(
     'cociner-comensales',
