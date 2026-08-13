@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { z } from 'zod'
 import { supabase } from '../lib/supabase'
+import { reportAppError } from '../store/useErrorTraceStore'
 
 const topPlatoSchema = z.object({
   plato: z.string(),
@@ -70,13 +71,13 @@ export function useDashboard(
       if (categoria) params.p_categoria = categoria
       const { data: raw, error: rpcError } = await supabase.rpc('obtener_dashboard', params)
       if (rpcError) {
-        console.error('Error fetching dashboard:', rpcError)
+        reportAppError({ fase: 'Dashboard', accion: 'Consultar resumen', error: rpcError, mensaje: 'No se pudo cargar el Dashboard.' })
         setError('Error al cargar el dashboard')
         return
       }
       setData(dashboardSchema.parse(raw))
     } catch (requestError) {
-      console.error('Error in fetchDashboard:', requestError)
+      reportAppError({ fase: 'Dashboard', accion: 'Validar resumen', error: requestError, mensaje: 'Los datos del Dashboard no tienen el formato esperado.' })
       setError('Los datos del Dashboard no tienen el formato esperado')
     } finally {
       setLoading(false)

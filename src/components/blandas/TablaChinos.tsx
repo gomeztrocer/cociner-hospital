@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { IconSoup, IconCalculator, IconCheck } from '@tabler/icons-react'
 import { useAppStore } from '../../store/useAppStore'
 import { useHistorial } from '../../hooks/useHistorial'
@@ -11,7 +11,8 @@ const BARQUETAS_POR_GASTRO = 6
 export default function TablaChinos() {
   const user = useAppStore((s) => s.user)
   const servicio = useAppStore((s) => s.servicio)
-  const { addRegistro } = useHistorial(user?.id)
+  const fechaTrabajo = useAppStore((s) => s.fechaTrabajo)
+  const { addRegistro } = useHistorial(user?.id, fechaTrabajo)
 
   const [selectedId, setSelectedId] = useState(CHINO_OPTIONS[0]?.id ?? '')
   const receta = CHINOS_RECETAS.find((r) => r.id === selectedId)
@@ -19,6 +20,8 @@ export default function TablaChinos() {
   const [gastros, setGastros] = useState('1')
   const [resultado, setResultado] = useState<ResultadoBlando | null>(null)
   const [guardado, setGuardado] = useState(false)
+
+  useEffect(() => { setGuardado(false) }, [servicio, fechaTrabajo])
 
   const gastrosNum = parseInt(gastros) || 0
   const barquetas = gastrosNum * BARQUETAS_POR_GASTRO
@@ -36,6 +39,8 @@ export default function TablaChinos() {
       servicio: servicio === 'almuerzo' ? 'Almuerzo' : 'Cena',
       raciones: barquetas * 10,
       categoria: 'blandas',
+      fecha: fechaTrabajo,
+      barquetas,
     })
     if (!r.error) {
       setGuardado(true)

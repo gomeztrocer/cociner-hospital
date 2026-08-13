@@ -33,10 +33,12 @@ export default function Recetas() {
   const [formError, setFormError] = useState('')
   const [saving, setSaving] = useState(false)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [guardado, setGuardado] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const [registroGuardado, setRegistroGuardado] = useState<string | null>(null)
   const [selectedReceta, setSelectedReceta] = useState<Receta | null>(null)
   const servicio = useAppStore((s) => s.servicio)
-  const { addRegistro } = useHistorial(user?.id)
+  const fechaTrabajo = useAppStore((s) => s.fechaTrabajo)
+  const { addRegistro } = useHistorial(user?.id, fechaTrabajo)
 
   const openCreate = () => {
     setModalMode('create')
@@ -124,7 +126,9 @@ export default function Recetas() {
   }
 
   const handleDelete = async (id: string) => {
-    await deleteReceta(id)
+    setDeleteError(null)
+    const result = await deleteReceta(id)
+    if (result.error) { setDeleteError(result.error); return }
     setDeleteConfirm(null)
   }
 
@@ -224,6 +228,7 @@ export default function Recetas() {
             <div className="space-y-3">
               {recetas.map((receta) => {
                 const isSelected = selectedReceta?.id === receta.id
+                const registroFirma = `${receta.id}:${fechaTrabajo}:${servicio}:${totalPacientes}:${totalBarquetas}`
                 return (
                   <div
                     key={receta.id}
@@ -250,7 +255,7 @@ export default function Recetas() {
                             <IconEdit size={13} />
                           </button>
                           <button
-                            onClick={() => setDeleteConfirm(receta.id)}
+                            onClick={() => { setDeleteError(null); setDeleteConfirm(receta.id) }}
                             className="px-2 py-1 text-[11px] border border-border rounded-sm text-text2 cursor-pointer hover:bg-red-light hover:text-red"
                           >
                             <IconTrash size={13} />
@@ -353,7 +358,7 @@ export default function Recetas() {
                           </div>
                         )}
 
-                        {guardado ? (
+                        {registroGuardado === registroFirma ? (
                           <div className="mt-2 flex items-center justify-center gap-1 text-xs font-semibold text-accent py-[7px]">
                             <IconCheck size={14} />
                             Preparación guardada ✓
@@ -367,8 +372,10 @@ export default function Recetas() {
                                 servicio: servicio === 'almuerzo' ? 'Almuerzo' : 'Cena',
                                 raciones: totalPacientes,
                                 categoria: 'receta',
+                                barquetas: totalBarquetas,
+                                fecha: fechaTrabajo,
                               })
-                              if (!r.error) setGuardado(true)
+                              if (!r.error) setRegistroGuardado(registroFirma)
                             }}
                             className="w-full mt-2 py-[7px] text-xs font-semibold border border-accent rounded-sm bg-accent-light text-accent cursor-pointer active:scale-[0.98] transition-transform"
                           >
@@ -521,6 +528,7 @@ export default function Recetas() {
           <div className="relative bg-surface rounded-xl p-[14px] shadow-lg mx-3" style={{ maxWidth: 320 }}>
             <div className="text-sm font-semibold text-text mb-2">¿Eliminar receta?</div>
             <div className="text-xs text-text2 mb-4">Esta acción no se puede deshacer.</div>
+            {deleteError && <div role="alert" className="mb-3 rounded-sm bg-redLight p-2 text-xs text-red">{deleteError}</div>}
             <div className="flex gap-2 justify-end">
               <button onClick={() => setDeleteConfirm(null)}
                 className="px-3 py-[7px] text-xs border border-border rounded-sm text-text2 cursor-pointer bg-surface">

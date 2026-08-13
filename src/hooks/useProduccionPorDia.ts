@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { z } from 'zod'
+import { reportAppError } from '../store/useErrorTraceStore'
 
 export interface DiaProduccion {
   fecha: string
@@ -49,14 +50,14 @@ export function useProduccionPorDia(
       )
 
       if (rpcError) {
-        console.error('Error fetching produccion por dia:', rpcError)
+        reportAppError({ fase: 'Dashboard', accion: 'Consultar producción diaria', error: rpcError, mensaje: 'No se pudo cargar la producción diaria.' })
         setError('Error al cargar producción diaria')
         return
       }
 
       setData(z.array(diaProduccionSchema).parse(raw))
     } catch (err) {
-      console.error('Error in fetchProduccionPorDia:', err)
+      reportAppError({ fase: 'Dashboard', accion: 'Validar producción diaria', error: err, mensaje: 'Los datos diarios no tienen el formato esperado.' })
       setError('Error de conexión')
     } finally {
       setLoading(false)

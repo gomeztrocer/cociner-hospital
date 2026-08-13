@@ -61,7 +61,9 @@ const ConfirmarProduccionGuarniciones = () => {
       : null
   }).filter((item): item is ProduccionGuarnicionCalculada => item !== null), [guarniciones, resultados, distribucion])
 
-  const firma = producciones.map((item) => `${item.id}:${item.nombre}:${item.resultado.netoNecesario}`).join('|')
+  const firma = `${fechaTrabajo}:${servicioActivo}|${producciones.map((item) => (
+    `${item.id}:${item.nombre}:${item.resultado.netoNecesario}:${item.distribucion.map((centro) => `${centro.id}-${centro.raciones}-${centro.barquetasMultiporcion}`).join(',')}`
+  )).join('|')}`
   const completas = producciones.length > 0 && producciones.length === guarniciones.length
   const pendientes = guarniciones
     .filter((guarnicion) => !resultados[guarnicion.id] || !guarnicion.nombre.trim())
@@ -72,6 +74,7 @@ const ConfirmarProduccionGuarniciones = () => {
     setAbierto(false)
     setError(null)
     setSesionCaducada(false)
+    setGuardado(null)
   }, [fechaTrabajo, servicioActivo, firma])
 
   const abrirConfirmacion = (): void => {

@@ -3,6 +3,7 @@ import { z } from 'zod'
 import { isSessionExpiredError, registrosRequest } from '../lib/cocinerApi'
 import { getFechaLocalTenerife } from '../lib/comensales'
 import { useAppStore } from '../store/useAppStore'
+import { reportAppError } from '../store/useErrorTraceStore'
 
 const distribucionCentroSchema = z.object({
   id: z.string(),
@@ -89,11 +90,23 @@ function errorMessage(error: unknown): string {
   return error instanceof Error ? error.message : 'Error de conexión'
 }
 
-function failure(error: unknown): HistorialResult {
+function failure(error: unknown, accion: string, entidadId?: string): HistorialResult {
+  reportAppError({ fase: 'Control de producción e historial', accion, error, entidadId })
   return {
     error: errorMessage(error),
     sessionExpired: isSessionExpiredError(error),
   }
+}
+
+function sessionFailure(accion: string): HistorialResult {
+  const error = new Error('Tu sesión ha caducado. Inicia sesión de nuevo.')
+  reportAppError({ fase: 'Control de producción e historial', accion, error })
+  return { error: error.message, sessionExpired: true }
+}
+
+function validationFailure(accion: string, message: string): HistorialResult {
+  reportAppError({ fase: 'Control de producción e historial', accion, error: new Error(message), mensaje: message })
+  return { error: message }
 }
 
 function validateRegistro(params: Omit<RegistroInput, 'categoria'> & { fecha: string }): string | null {
@@ -136,8 +149,8 @@ export function useHistorial(
       })
       setRegistros(z.array(registroSchema).parse(response.registros))
     } catch (requestError) {
-      console.error('Error fetching registros:', requestError)
-      setError(errorMessage(requestError))
+      const result = failure(requestError, 'Consultar historial')
+      setError(result.error ?? 'No se pudo cargar el historial')
     } finally {
       setLoading(false)
     }
@@ -148,11 +161,11 @@ export function useHistorial(
   }, [fetchRegistros])
 
   const addRegistro = useCallback(async (params: RegistroInput): Promise<HistorialResult> => {
-    if (!usuarioId || !token) return { error: 'Tu sesión ha caducado. Inicia sesión de nuevo.', sessionExpired: true }
+    if (!usuarioId || !token) return sessionFailure('Crear registro')
 
     const fechaRegistro = params.fecha ?? fecha
     const validationError = validateRegistro({ ...params, fecha: fechaRegistro })
-    if (validationError) return { error: validationError }
+    if (validationError) return validationFailure('Validar nuevo registro', validationError)
 
     try {
       await registrosRequest(token, {
@@ -171,8 +184,7 @@ export function useHistorial(
       await fetchRegistros()
       return {}
     } catch (requestError) {
-      console.error('Error inserting registro:', requestError)
-      return failure(requestError)
+      return failure(requestError, 'Crear registro')
     }
   }, [usuarioId, token, fecha, fetchRegistros])
 
@@ -181,9 +193,9 @@ export function useHistorial(
     servicio: string
     producciones: ProduccionGuarnicionInput[]
   }): Promise<HistorialResult> => {
-    if (!usuarioId || !token) return { error: 'Tu sesión ha caducado. Inicia sesión de nuevo.', sessionExpired: true }
+    if (!usuarioId || !token) return sessionFailure('Registrar producciones')
     if (params.producciones.length < 1 || params.producciones.length > 2) {
-      return { error: 'Debe haber una o dos guarniciones para registrar' }
+      return validationFailure('Validar producciones', 'Debe haber una o dos guarniciones para registrar')
     }
 
     for (const produccion of params.producciones) {
@@ -192,7 +204,7 @@ export function useHistorial(
         servicio: params.servicio,
         fecha: params.fecha,
       })
-      if (validationError) return { error: `${produccion.plato}: ${validationError}` }
+      if (validationError) return validationFailure('Validar producciones', `${produccion.plato}: ${validationError}`)
     }
 
     try {
@@ -215,16 +227,15 @@ export function useHistorial(
       await fetchRegistros()
       return {}
     } catch (requestError) {
-      console.error('Error inserting production batch:', requestError)
-      return failure(requestError)
+      return failure(requestError, 'Registrar producciones')
     }
   }, [usuarioId, token, fetchRegistros])
 
   const updateRegistro = useCallback(async (params: RegistroUpdateInput): Promise<HistorialResult> => {
-    if (!usuarioId || !token) return { error: 'Tu sesión ha caducado. Inicia sesión de nuevo.', sessionExpired: true }
+    if (!usuarioId || !token) return sessionFailure('Editar registro')
 
     const validationError = validateRegistro(params)
-    if (validationError) return { error: validationError }
+    if (validationError) return validationFailure('Validar edición', validationError)
 
     try {
       await registrosRequest(token, {
@@ -243,22 +254,20 @@ export function useHistorial(
       await fetchRegistros()
       return {}
     } catch (requestError) {
-      console.error('Error updating registro:', requestError)
-      return failure(requestError)
+      return failure(requestError, 'Editar registro', params.id)
     }
   }, [usuarioId, token, fetchRegistros])
 
   const deleteRegistro = useCallback(async (id: string): Promise<HistorialResult> => {
-    if (!usuarioId || !token) return { error: 'Tu sesión ha caducado. Inicia sesión de nuevo.', sessionExpired: true }
-    if (!id) return { error: 'Registro no válido' }
+    if (!usuarioId || !token) return sessionFailure('Eliminar registro')
+    if (!id) return validationFailure('Validar eliminación', 'Registro no válido')
 
     try {
       await registrosRequest(token, { action: 'delete', registro_id: id })
       await fetchRegistros()
       return {}
     } catch (requestError) {
-      console.error('Error deleting registro:', requestError)
-      return failure(requestError)
+      return failure(requestError, 'Eliminar registro', id)
     }
   }, [usuarioId, token, fetchRegistros])
 

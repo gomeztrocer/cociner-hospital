@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { IconBlender, IconCalculator, IconCheck } from '@tabler/icons-react'
 import { useAppStore } from '../../store/useAppStore'
 import { useHistorial } from '../../hooks/useHistorial'
@@ -14,11 +14,14 @@ const MOLIDO_RECETA = MOLIDO_RECETAS[0]!
 export default function TablaMolido() {
   const user = useAppStore((s) => s.user)
   const servicio = useAppStore((s) => s.servicio)
-  const { addRegistro } = useHistorial(user?.id)
+  const fechaTrabajo = useAppStore((s) => s.fechaTrabajo)
+  const { addRegistro } = useHistorial(user?.id, fechaTrabajo)
 
   const [barquetas, setBarquetas] = useState(String(MOLIDO_RECETA.barquetasBase))
   const [resultado, setResultado] = useState<ResultadoBlando | null>(null)
   const [guardado, setGuardado] = useState(false)
+
+  useEffect(() => { setGuardado(false) }, [servicio, fechaTrabajo])
 
   const handleCalcular = () => {
     const b = parseInt(barquetas) || 0
@@ -35,6 +38,8 @@ export default function TablaMolido() {
       servicio: servicio === 'almuerzo' ? 'Almuerzo' : 'Cena',
       raciones: b * 10,
       categoria: 'blandas',
+      fecha: fechaTrabajo,
+      barquetas: b,
     })
     if (!r.error) setGuardado(true)
   }

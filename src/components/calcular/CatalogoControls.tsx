@@ -16,6 +16,7 @@ export default function CatalogoControls({ categoria, selectedName, onUse }: Cat
   const [manage, setManage] = useState(false)
   const [saving, setSaving] = useState(false)
   const [formError, setFormError] = useState<string | null>(null)
+  const [manageError, setManageError] = useState<string | null>(null)
   const activos = data.preparaciones.filter((prep) => prep.activo && prep.categoria === categoria)
 
   const saveForm = async (input: PreparacionCatalogoInput): Promise<void> => {
@@ -25,6 +26,12 @@ export default function CatalogoControls({ categoria, selectedName, onUse }: Cat
     setSaving(false)
     if (result.error || !result.preparacion) { setFormError(result.error ?? 'No se pudo recuperar la preparación'); return }
     setEditing(null); onUse(result.preparacion, result.preparacion.mermaPorcentaje != null || categoria === 'proteina')
+  }
+
+  const archiveItem = async (preparacion: PreparacionCatalogo): Promise<void> => {
+    setManageError(null)
+    const result = await archive(preparacion.id)
+    if (result.error) setManageError(`${preparacion.nombre}: ${result.error}`)
   }
 
   return (
@@ -38,11 +45,12 @@ export default function CatalogoControls({ categoria, selectedName, onUse }: Cat
       </div>
       {loading && <div className="mt-1 text-[10px] text-text3">Cargando catálogo…</div>}
       {loadError && <div className="mt-1 text-[10px] text-warn">Catálogo en línea no disponible; los preparados integrados siguen funcionando.</div>}
+      {manageError && <div role="alert" className="mt-2 rounded-sm bg-redLight p-2 text-xs text-red">{manageError}</div>}
       {manage && <div className="mt-2 rounded-sm border border-border bg-surface p-2">
         {activos.map((prep) => <div key={prep.id} className="flex min-h-11 items-center gap-2 border-b border-surface2 last:border-0">
           <span className="flex-1 text-xs">{prep.nombre}</span>
           <button type="button" aria-label={`Editar ${prep.nombre}`} onClick={() => { setEditing(prep); setFormError(null) }} className="min-h-11 min-w-11 flex items-center justify-center text-accent"><IconEdit size={16} /></button>
-          <button type="button" aria-label={`Archivar ${prep.nombre}`} onClick={() => void archive(prep.id)} className="min-h-11 min-w-11 flex items-center justify-center text-red"><IconTrash size={16} /></button>
+          <button type="button" aria-label={`Archivar ${prep.nombre}`} onClick={() => void archiveItem(prep)} className="min-h-11 min-w-11 flex items-center justify-center text-red"><IconTrash size={16} /></button>
         </div>)}
       </div>}
       {editing && <div className="mt-3"><PreparacionCatalogoForm key={editing === 'new' ? 'new' : editing.id} categoria={categoria} unidades={data.unidades} initial={editing === 'new' ? undefined : editing} saving={saving} error={formError} onCancel={() => setEditing(null)} onSave={saveForm} /></div>}

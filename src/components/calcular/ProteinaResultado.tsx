@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { IconCheck, IconMeat } from '@tabler/icons-react'
 import { useHistorial } from '../../hooks/useHistorial'
 import type { ProteinaResult } from '../../lib/calculos'
@@ -16,9 +16,11 @@ export default function ProteinaResultado({ nombre, nombreUnidad, unidadesPorRac
   const [guardado, setGuardado] = useState(false)
   const user = useAppStore((state) => state.user)
   const servicio = useAppStore((state) => state.servicio)
-  const { addRegistro } = useHistorial(user?.id)
+  const fechaTrabajo = useAppStore((state) => state.fechaTrabajo)
+  const { addRegistro } = useHistorial(user?.id, fechaTrabajo)
+  useEffect(() => { setGuardado(false) }, [servicio, fechaTrabajo, nombre, totalPacientes])
   const guardar = async (): Promise<void> => {
-    const response = await addRegistro({ plato: nombre, servicio: servicio === 'almuerzo' ? 'Almuerzo' : 'Cena', raciones: totalPacientes, categoria: 'proteina' })
+    const response = await addRegistro({ plato: nombre, servicio: servicio === 'almuerzo' ? 'Almuerzo' : 'Cena', raciones: totalPacientes, fecha: fechaTrabajo, categoria: 'proteina' })
     if (!response.error) setGuardado(true)
   }
 

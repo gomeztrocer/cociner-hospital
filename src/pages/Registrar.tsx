@@ -40,6 +40,7 @@ export default function Registrar() {
 
   const [plato, setPlato] = useState('')
   const [raciones, setRaciones] = useState('414')
+  const [barquetas, setBarquetas] = useState('')
   const [servicio, setServicio] = useState('Almuerzo')
   const [saving, setSaving] = useState(false)
   const [saveError, setSaveError] = useState<string | null>(null)
@@ -64,6 +65,7 @@ export default function Registrar() {
       servicio,
       raciones: racionesNum,
       fecha,
+      barquetas: Number.parseInt(barquetas, 10),
     })
     setSaving(false)
 
@@ -74,6 +76,7 @@ export default function Registrar() {
 
     setPlato('')
     setRaciones('414')
+    setBarquetas('')
     setServicio('Almuerzo')
     setSuccess(true)
     window.setTimeout(() => setSuccess(false), 3000)
@@ -182,7 +185,7 @@ export default function Registrar() {
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-3 mb-3">
+          <div className="grid grid-cols-2 gap-3 mb-3 sm:grid-cols-3">
             <div>
               <label htmlFor="registro-raciones" className="block text-[11px] font-medium text-text2 mb-1">
                 Raciones totales
@@ -194,6 +197,21 @@ export default function Registrar() {
                 onChange={(event) => setRaciones(event.target.value)}
                 min="1"
                 inputMode="numeric"
+                className="w-full px-3 py-[10px] text-sm bg-bg border border-border rounded-lg text-text placeholder:text-text3 outline-none focus:border-accent transition-colors"
+              />
+            </div>
+            <div>
+              <label htmlFor="registro-barquetas" className="block text-[11px] font-medium text-text2 mb-1">
+                Barquetas reales
+              </label>
+              <input
+                id="registro-barquetas"
+                type="number"
+                value={barquetas}
+                onChange={(event) => setBarquetas(event.target.value)}
+                min="0"
+                inputMode="numeric"
+                placeholder="Ej: 42"
                 className="w-full px-3 py-[10px] text-sm bg-bg border border-border rounded-lg text-text placeholder:text-text3 outline-none focus:border-accent transition-colors"
               />
             </div>
@@ -223,7 +241,7 @@ export default function Registrar() {
 
           <button
             type="submit"
-            disabled={saving}
+            disabled={saving || barquetas === ''}
             className="w-full py-[10px] text-sm font-semibold text-white border-none rounded-xl flex items-center justify-center gap-2 cursor-pointer active:scale-[0.98] transition-transform disabled:opacity-60 disabled:cursor-not-allowed"
             style={{ background: accentColor }}
           >

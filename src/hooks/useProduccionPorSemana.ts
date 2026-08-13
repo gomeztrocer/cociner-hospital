@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
 import { z } from 'zod'
+import { reportAppError } from '../store/useErrorTraceStore'
 
 export interface SemanaProduccion {
   semana: number
@@ -47,14 +48,14 @@ export function useProduccionPorSemana(
       )
 
       if (rpcError) {
-        console.error('Error fetching produccion por semana:', rpcError)
+        reportAppError({ fase: 'Dashboard', accion: 'Consultar producción semanal', error: rpcError, mensaje: 'No se pudo cargar la producción semanal.' })
         setError('Error al cargar producción semanal')
         return
       }
 
       setData(z.array(semanaProduccionSchema).parse(raw))
     } catch (err) {
-      console.error('Error in fetchProduccionPorSemana:', err)
+      reportAppError({ fase: 'Dashboard', accion: 'Validar producción semanal', error: err, mensaje: 'Los datos semanales no tienen el formato esperado.' })
       setError('Error de conexión')
     } finally {
       setLoading(false)

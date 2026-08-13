@@ -78,6 +78,7 @@ describe('Registrar', () => {
     fireEvent.change(screen.getByLabelText('Fecha de producción'), { target: { value: '2026-08-01' } })
     fireEvent.change(screen.getByLabelText('Plato elaborado'), { target: { value: 'Menestra' } })
     fireEvent.change(screen.getByLabelText('Raciones totales'), { target: { value: '90' } })
+    fireEvent.change(screen.getByLabelText('Barquetas reales'), { target: { value: '9' } })
     fireEvent.change(screen.getByLabelText('Servicio'), { target: { value: 'Cena' } })
     fireEvent.click(screen.getByRole('button', { name: 'Guardar en historial' }))
 
@@ -87,6 +88,7 @@ describe('Registrar', () => {
         servicio: 'Cena',
         raciones: 90,
         fecha: '2026-08-01',
+        barquetas: 9,
       })
     })
   })

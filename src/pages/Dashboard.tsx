@@ -8,6 +8,7 @@ import { useProduccionPorSemana } from '../hooks/useProduccionPorSemana'
 import { useAppStore } from '../store/useAppStore'
 import Spinner from '../components/ui/Spinner'
 import BarChartVertical from '../components/dashboard/BarChartVertical'
+import { reportAppError } from '../store/useErrorTraceStore'
 
 const CATEGORIAS = [
   { key: '', label: 'Todas' },
@@ -159,7 +160,7 @@ export default function Dashboard() {
 
     adminUsersRequest<{ usuarios: ChefOption[] }>(token, { action: 'list' })
       .then(({ usuarios }) => setChefs(usuarios))
-      .catch((error: unknown) => console.error('Error al listar chefs:', error))
+      .catch((error: unknown) => reportAppError({ fase: 'Dashboard', accion: 'Consultar chefs', error }))
   }, [puedeFiltrar, currentUser?.token])
 
   const weekTitle = useMemo(() => {

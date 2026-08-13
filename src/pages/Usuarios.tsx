@@ -20,6 +20,7 @@ export default function Usuarios() {
   const [pinChangeUserId, setPinChangeUserId] = useState<string | null>(null)
   const [pinChangeValue, setPinChangeValue] = useState('')
   const [pinChangeError, setPinChangeError] = useState<string | null>(null)
+  const [actionError, setActionError] = useState<string | null>(null)
 
   const resetForm = () => {
     setForm({ nombre: '', username: '', pin: '', rol: 'cocinero' })
@@ -45,7 +46,9 @@ export default function Usuarios() {
   }
 
   const handleToggle = async (id: string) => {
-    await toggleUsuario(id)
+    setActionError(null)
+    const result = await toggleUsuario(id)
+    if (result.error) setActionError(result.error)
   }
 
   const handlePinChange = async (usuarioId: string) => {
@@ -92,6 +95,8 @@ export default function Usuarios() {
           </button>
         </div>
       </div>
+
+      {actionError && <div role="alert" className="mb-3 rounded-sm bg-redLight p-2 text-xs text-red">{actionError}</div>}
 
       {showForm && (
         <form onSubmit={handleCreate} className="bg-surface border border-border rounded-xl p-[14px] mb-4 shadow-sm space-y-3">
