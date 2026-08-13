@@ -11,37 +11,53 @@ import {
 
 const MOLIDO_RECETA = MOLIDO_RECETAS[0]!
 
-export default function TablaMolido() {
+interface Props {
+  fechaProduccion: string
+}
+
+export default function TablaMolido({ fechaProduccion }: Props) {
   const user = useAppStore((s) => s.user)
   const servicio = useAppStore((s) => s.servicio)
-  const fechaTrabajo = useAppStore((s) => s.fechaTrabajo)
-  const { addRegistro } = useHistorial(user?.id, fechaTrabajo)
+  const { addRegistro } = useHistorial(user?.id, fechaProduccion)
 
   const [barquetas, setBarquetas] = useState(String(MOLIDO_RECETA.barquetasBase))
   const [resultado, setResultado] = useState<ResultadoBlando | null>(null)
   const [guardado, setGuardado] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [errorRegistro, setErrorRegistro] = useState<string | null>(null)
 
-  useEffect(() => { setGuardado(false) }, [servicio, fechaTrabajo])
+  useEffect(() => {
+    setGuardado(false)
+    setErrorRegistro(null)
+  }, [servicio, fechaProduccion])
 
   const handleCalcular = () => {
     const b = parseInt(barquetas) || 0
     if (b < 1) return
     setResultado(escalarReceta(MOLIDO_RECETA, b))
     setGuardado(false)
+    setErrorRegistro(null)
   }
 
   const handleRegistrar = async () => {
     const b = parseInt(barquetas) || 0
     if (b < 1) return
+    setGuardando(true)
+    setErrorRegistro(null)
     const r = await addRegistro({
       plato: 'Blandas - Molido',
       servicio: servicio === 'almuerzo' ? 'Almuerzo' : 'Cena',
       raciones: b * 10,
       categoria: 'blandas',
-      fecha: fechaTrabajo,
+      fecha: fechaProduccion,
       barquetas: b,
     })
-    if (!r.error) setGuardado(true)
+    setGuardando(false)
+    if (r.error) {
+      setErrorRegistro(r.error)
+      return
+    }
+    setGuardado(true)
   }
 
   const fmtIngrediente = (cant: number, unidad: string, nota?: string) => {
@@ -98,7 +114,12 @@ export default function TablaMolido() {
           min={1}
           placeholder="Barquetas necesarias"
           value={barquetas}
-          onChange={(e) => { setBarquetas(e.target.value); setGuardado(false) }}
+          onChange={(e) => {
+            setBarquetas(e.target.value)
+            setResultado(null)
+            setGuardado(false)
+            setErrorRegistro(null)
+          }}
           className="flex-1 px-[10px] py-[7px] text-sm border border-border rounded-sm bg-bg text-text"
         />
         <button
@@ -137,6 +158,10 @@ export default function TablaMolido() {
       )}
 
       {/* Registrar */}
+      {resultado && errorRegistro && (
+        <p role="alert" className="mb-2 rounded-lg bg-redLight px-3 py-2 text-xs text-red">{errorRegistro}</p>
+      )}
+
       {resultado && (
         guardado ? (
           <div className="flex items-center justify-center gap-1 text-xs font-semibold text-accent py-[7px]">
@@ -146,9 +171,10 @@ export default function TablaMolido() {
         ) : (
           <button
             onClick={handleRegistrar}
+            disabled={guardando}
             className="w-full py-[7px] text-xs font-semibold border border-accent rounded-sm bg-accent-light text-accent cursor-pointer active:scale-[0.98] transition-transform"
           >
-            Registrar producción
+            {guardando ? 'Registrando…' : 'Registrar producción'}
           </button>
         )
       )}

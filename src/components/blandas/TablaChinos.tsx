@@ -8,11 +8,14 @@ import PedidoPapaCajas from './PedidoPapaCajas'
 const CHINO_OPTIONS = CHINOS_RECETAS.map((r) => ({ id: r.id, nombre: r.nombre, subtipo: r.subtipo }))
 const BARQUETAS_POR_GASTRO = 6
 
-export default function TablaChinos() {
+interface Props {
+  fechaProduccion: string
+}
+
+export default function TablaChinos({ fechaProduccion }: Props) {
   const user = useAppStore((s) => s.user)
   const servicio = useAppStore((s) => s.servicio)
-  const fechaTrabajo = useAppStore((s) => s.fechaTrabajo)
-  const { addRegistro } = useHistorial(user?.id, fechaTrabajo)
+  const { addRegistro } = useHistorial(user?.id, fechaProduccion)
 
   const [selectedId, setSelectedId] = useState(CHINO_OPTIONS[0]?.id ?? '')
   const receta = CHINOS_RECETAS.find((r) => r.id === selectedId)
@@ -20,8 +23,13 @@ export default function TablaChinos() {
   const [gastros, setGastros] = useState('1')
   const [resultado, setResultado] = useState<ResultadoBlando | null>(null)
   const [guardado, setGuardado] = useState(false)
+  const [guardando, setGuardando] = useState(false)
+  const [errorRegistro, setErrorRegistro] = useState<string | null>(null)
 
-  useEffect(() => { setGuardado(false) }, [servicio, fechaTrabajo])
+  useEffect(() => {
+    setGuardado(false)
+    setErrorRegistro(null)
+  }, [servicio, fechaProduccion])
 
   const gastrosNum = parseInt(gastros) || 0
   const barquetas = gastrosNum * BARQUETAS_POR_GASTRO
@@ -30,18 +38,26 @@ export default function TablaChinos() {
     if (gastrosNum < 1 || !receta) return
     setResultado(escalarReceta(receta, barquetas))
     setGuardado(false)
+    setErrorRegistro(null)
   }
 
   const handleRegistrar = async () => {
     if (gastrosNum < 1) return
+    setGuardando(true)
+    setErrorRegistro(null)
     const r = await addRegistro({
       plato: `Blandas - Chinos ${receta?.subtipo ?? ''}`,
       servicio: servicio === 'almuerzo' ? 'Almuerzo' : 'Cena',
       raciones: barquetas * 10,
       categoria: 'blandas',
-      fecha: fechaTrabajo,
+      fecha: fechaProduccion,
       barquetas,
     })
+    setGuardando(false)
+    if (r.error) {
+      setErrorRegistro(r.error)
+      return
+    }
     if (!r.error) {
       setGuardado(true)
     }
@@ -102,7 +118,12 @@ export default function TablaChinos() {
           min={1}
           placeholder="Gastros"
           value={gastros}
-          onChange={(e) => { setGastros(e.target.value); setGuardado(false) }}
+          onChange={(e) => {
+            setGastros(e.target.value)
+            setResultado(null)
+            setGuardado(false)
+            setErrorRegistro(null)
+          }}
           className="flex-1 px-[10px] py-[7px] text-sm border border-border rounded-sm bg-bg text-text"
         />
         <button
@@ -150,6 +171,12 @@ export default function TablaChinos() {
       )}
 
       {resultado && (
+        errorRegistro ? (
+          <p role="alert" className="mb-2 rounded-lg bg-redLight px-3 py-2 text-xs text-red">{errorRegistro}</p>
+        ) : null
+      )}
+
+      {resultado && (
         guardado ? (
           <div className="flex items-center justify-center gap-1 text-xs font-semibold text-accent py-[7px]">
             <IconCheck size={14} />
@@ -158,9 +185,10 @@ export default function TablaChinos() {
         ) : (
           <button
             onClick={handleRegistrar}
+            disabled={guardando}
             className="w-full py-[7px] text-xs font-semibold border border-accent rounded-sm bg-accent-light text-accent cursor-pointer active:scale-[0.98] transition-transform"
           >
-            Registrar producción
+            {guardando ? 'Registrando…' : 'Registrar producción'}
           </button>
         )
       )}
