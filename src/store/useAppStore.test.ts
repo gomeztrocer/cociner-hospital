@@ -76,6 +76,21 @@ describe('store de guarniciones', () => {
     expect(guarniciones.map((guarnicion) => resultados[guarnicion.id]?.totalPacientes)).toEqual([44, 44])
   })
 
+  it('recalcula la primera guarnición al añadir la segunda y permite completar el lote', () => {
+    const primeraId = useAppStore.getState().guarniciones[0].id
+    useAppStore.getState().calcularGuarnicionPrep(primeraId)
+    expect(useAppStore.getState().resultadosGuarniciones[primeraId]?.racionG).toBe(120)
+
+    useAppStore.getState().addGuarnicion({ nombre: 'guarnicion-2' })
+
+    const estado = useAppStore.getState()
+    expect(estado.resultadosGuarniciones[primeraId]).toMatchObject({
+      totalPacientes: 44,
+      racionG: 60,
+      netoNecesario: 2640,
+    })
+  })
+
   it('conserva el gramaje manual al cambiar el número de guarniciones y los comensales', () => {
     const primeraId = useAppStore.getState().guarniciones[0].id
     useAppStore.getState().updateGuarnicion(primeraId, { gramos: 75, gramosManual: true })

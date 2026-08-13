@@ -1,10 +1,18 @@
 import { useCallback, useEffect, useState } from 'react'
 import { supabase } from '../lib/supabase'
+import { z } from 'zod'
 
 export interface SemanaProduccion {
   semana: number
   total_raciones: number
+  total_barquetas: number
 }
+
+const semanaProduccionSchema = z.object({
+  semana: z.number().int(),
+  total_raciones: z.number().nonnegative(),
+  total_barquetas: z.number().nonnegative(),
+})
 
 interface UseProduccionPorSemanaReturn {
   data: SemanaProduccion[]
@@ -44,7 +52,7 @@ export function useProduccionPorSemana(
         return
       }
 
-      setData(raw as unknown as SemanaProduccion[])
+      setData(z.array(semanaProduccionSchema).parse(raw))
     } catch (err) {
       console.error('Error in fetchProduccionPorSemana:', err)
       setError('Error de conexión')

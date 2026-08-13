@@ -78,14 +78,6 @@ function getCurrentWeekNumber(): number {
   return Math.ceil(((diff / 86400000) + start.getDay() + 1) / 7)
 }
 
-function barquetas(val: number): number {
-  return Math.round(val / 10)
-}
-
-function getTodayLocal(): string {
-  return new Date().toLocaleDateString('sv-SE')
-}
-
 export default function Dashboard() {
   const { user } = useAuth()
   const currentUser = useAppStore((s) => s.user)
@@ -102,7 +94,8 @@ export default function Dashboard() {
   const categoriaParam = selectedCategoria || undefined
   const usuarioId = puedeFiltrar ? selectedChefId : user?.id
 
-  const { data, loading, error } = useDashboard(usuarioId, undefined, categoriaParam)
+  const currentMonth = useMemo(() => getCurrentMonthOffset(mesOffset), [mesOffset])
+  const { data, loading, error } = useDashboard(usuarioId, currentMonth, categoriaParam)
 
   const weekRange = useMemo(() => getWeekRange(semanaOffset), [semanaOffset])
   const currentWeekNum = getCurrentWeekNumber()
@@ -116,8 +109,6 @@ export default function Dashboard() {
     categoriaParam,
   )
 
-  const currentMonth = useMemo(() => getCurrentMonthOffset(mesOffset), [mesOffset])
-
   const { data: semData, loading: semLoading } = useProduccionPorSemana(
     usuarioId,
     currentMonth,
@@ -125,13 +116,13 @@ export default function Dashboard() {
   )
 
   const weeklyBars = useMemo(() => {
-    const map = new Map(diaData.map((d) => [d.fecha, d.total_raciones]))
+    const map = new Map(diaData.map((d) => [d.fecha, d.total_barquetas]))
     return weekRange.dates.map((d) => {
       const y = d.getFullYear()
       const m = String(d.getMonth() + 1).padStart(2, '0')
       const day = String(d.getDate()).padStart(2, '0')
       const key = `${y}-${m}-${day}`
-      return barquetas(map.get(key) ?? 0)
+      return map.get(key) ?? 0
     })
   }, [diaData, weekRange])
 
@@ -142,11 +133,11 @@ export default function Dashboard() {
   [weekRange])
 
   const monthlyBars = useMemo(() => {
-    const map = new Map(semData.map((s) => [s.semana, s.total_raciones]))
+    const map = new Map(semData.map((s) => [s.semana, s.total_barquetas]))
     const weeks: number[] = []
     for (let i = 0; i < 5; i++) {
       const w = currentWeekNum + i
-      weeks.push(barquetas(map.get(w) ?? 0))
+      weeks.push(map.get(w) ?? 0)
     }
     return weeks
   }, [semData, currentWeekNum])
@@ -159,14 +150,6 @@ export default function Dashboard() {
     const firstWeek = currentWeekNum
     return monthlyBars.findIndex((_, i) => firstWeek + i === currentWeekNum)
   }, [mesOffset, currentWeekNum, monthlyBars])
-
-  const hechosHoyLocal = useMemo(() => {
-    if (!data) return 0
-    const today = getTodayLocal()
-    return data.ultimos_registros
-      .filter((r) => r.fecha === today)
-      .reduce((sum, r) => sum + r.raciones, 0)
-  }, [data])
 
   useEffect(() => {
     if (!puedeFiltrar) return
@@ -251,10 +234,10 @@ export default function Dashboard() {
       <div className="grid grid-cols-2 gap-[10px] mb-[10px]">
         {hasData && data ? (
           <>
-            <MetricCard label="Barquetas este mes" value={barquetas(data.total_raciones)} color="#1B5E3F" bg="#E8F3ED" />
-            <MetricCard label="Media barquetas/día" value={barquetas(data.media_diaria)} color="#B45309" bg="#FEF3C7" />
+            <MetricCard label="Barquetas este mes" value={data.total_barquetas} color="#1B5E3F" bg="#E8F3ED" />
+            <MetricCard label="Media barquetas/día" value={data.media_barquetas_diaria} color="#B45309" bg="#FEF3C7" />
             <MetricCard label="Elaboraciones" value={data.total_elaboraciones} color="#1E3A5F" bg="#EFF6FF" />
-            <MetricCard label="Barquetas hoy" value={barquetas(hechosHoyLocal)} color="#059669" bg="#ECFDF5" />
+            <MetricCard label="Barquetas hoy" value={data.barquetas_hoy} color="#059669" bg="#ECFDF5" />
           </>
         ) : (
           <>
@@ -344,14 +327,14 @@ export default function Dashboard() {
         ) : (
           <div className="space-y-3">
             {data && (() => {
-              const maxRaciones = data.top_platos.length > 0 ? data.top_platos[0].raciones : 1
+              const maxBarquetas = data.top_platos.length > 0 ? data.top_platos[0].barquetas : 1
               return data.top_platos.map((p) => {
-                const pct = Math.round((p.raciones / maxRaciones) * 100)
+                const pct = Math.round((p.barquetas / maxBarquetas) * 100)
                 return (
                   <div key={p.plato}>
                     <div className="flex items-center justify-between text-[12px] mb-1">
                       <span className="text-text font-medium">{p.plato}</span>
-                      <span className="text-text2">{barquetas(p.raciones)} barq.</span>
+                      <span className="text-text2">{p.barquetas} barq.</span>
                     </div>
                     <div className="h-[6px] bg-bg rounded-full overflow-hidden">
                       <div className="h-full rounded-full transition-all duration-500" style={{ width: `${pct}%`, background: '#1B5E3F' }} />
@@ -385,7 +368,7 @@ export default function Dashboard() {
                   <span className="text-[11px] font-mono text-text3">{r.fecha}</span>
                 </div>
                 <div className="text-[12px] text-text2">
-                  <span className="font-medium text-text">{barquetas(r.raciones)} barq.</span>
+                  <span className="font-medium text-text">{r.barquetas} barq.</span>
                   <span className="text-text3"> ({r.raciones} raciones)</span>
                   {' · '}{r.servicio}
                   {r.chef ? ` · ${r.chef}` : ''}

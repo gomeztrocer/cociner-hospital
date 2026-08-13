@@ -46,6 +46,11 @@ const registro: Registro = {
   fecha: '2026-08-10',
   notas: 'Sin sal',
   categoria: 'manual',
+  barquetas: 12,
+  cantidad_calculada_g: null,
+  cantidad_producida_g: null,
+  distribucion_centros: [],
+  grupo_produccion: null,
   created_at: '2026-08-10T10:00:00.000Z',
   updated_at: null,
 }
@@ -106,6 +111,10 @@ describe('Registrar', () => {
         raciones: 100,
         fecha: '2026-08-09',
         notas: 'Sin sal',
+        barquetas: 12,
+        cantidadCalculadaG: null,
+        cantidadProducidaG: null,
+        distribucionCentros: [],
       })
     })
   })

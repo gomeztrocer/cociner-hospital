@@ -1,51 +1,56 @@
 import { useCallback, useEffect, useState } from 'react'
+import { z } from 'zod'
 import { supabase } from '../lib/supabase'
 
-// ── Types ──
+const topPlatoSchema = z.object({
+  plato: z.string(),
+  raciones: z.number().nonnegative(),
+  barquetas: z.number().nonnegative(),
+})
 
-export interface TopPlato {
-  plato: string
-  raciones: number
-}
+const ultimoRegistroSchema = z.object({
+  id: z.string(),
+  plato: z.string(),
+  raciones: z.number().nonnegative(),
+  barquetas: z.number().nonnegative(),
+  cantidad_calculada_g: z.number().nonnegative().nullable(),
+  cantidad_producida_g: z.number().nonnegative().nullable(),
+  distribucion_centros: z.unknown().nullable(),
+  servicio: z.string(),
+  categoria: z.string(),
+  fecha: z.string(),
+  created_at: z.string(),
+  chef: z.string().nullable(),
+})
 
-export interface UltimoRegistro {
-  id: string
-  plato: string
-  raciones: number
-  servicio: string
-  categoria: string
-  fecha: string
-  created_at: string
-  chef: string | null
-}
+const dashboardSchema = z.object({
+  total_raciones: z.number().nonnegative(),
+  total_barquetas: z.number().nonnegative(),
+  total_elaboraciones: z.number().int().nonnegative(),
+  dias_con_registro: z.number().int().nonnegative(),
+  media_diaria: z.number().nonnegative(),
+  media_barquetas_diaria: z.number().nonnegative(),
+  hechos_hoy: z.number().int().nonnegative(),
+  barquetas_hoy: z.number().nonnegative(),
+  top_platos: z.array(topPlatoSchema),
+  ultimos_registros: z.array(ultimoRegistroSchema),
+})
 
-export interface DashboardData {
-  total_raciones: number
-  total_elaboraciones: number
-  dias_con_registro: number
-  media_diaria: number
-  hechos_hoy: number
-  top_platos: TopPlato[]
-  ultimos_registros: UltimoRegistro[]
-}
+export type TopPlato = z.infer<typeof topPlatoSchema>
+export type UltimoRegistro = z.infer<typeof ultimoRegistroSchema>
+export type DashboardData = z.infer<typeof dashboardSchema>
 
-export interface UseDashboardReturn {
+interface UseDashboardReturn {
   data: DashboardData | null
   loading: boolean
   error: string | null
   refresh: () => void
 }
 
-// ── Helpers ──
-
 function getCurrentMonth(): string {
-  const d = new Date()
-  const y = d.getFullYear()
-  const m = String(d.getMonth() + 1).padStart(2, '0')
-  return `${y}-${m}`
+  const date = new Date()
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`
 }
-
-// ── Hook ──
 
 export function useDashboard(
   usuarioId: string | undefined,
@@ -55,46 +60,29 @@ export function useDashboard(
   const [data, setData] = useState<DashboardData | null>(null)
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
   const month = mes ?? getCurrentMonth()
 
-  const fetchDashboard = useCallback(async () => {
+  const fetchDashboard = useCallback(async (): Promise<void> => {
     try {
       setLoading(true)
       setError(null)
-
-      const params: Record<string, unknown> = {
-        p_usuario_id: usuarioId ?? null,
-        p_mes: month,
-      }
+      const params: Record<string, unknown> = { p_usuario_id: usuarioId ?? null, p_mes: month }
       if (categoria) params.p_categoria = categoria
-      console.log('🔍 obtener_dashboard params:', params)
-
-      const { data: raw, error: rpcError } = await supabase.rpc(
-        'obtener_dashboard',
-        params,
-      )
-
+      const { data: raw, error: rpcError } = await supabase.rpc('obtener_dashboard', params)
       if (rpcError) {
-        console.error('🔍 Error fetching dashboard:', rpcError)
+        console.error('Error fetching dashboard:', rpcError)
         setError('Error al cargar el dashboard')
         return
       }
-
-      console.log('🔍 obtener_dashboard result:', raw)
-
-      setData(raw as unknown as DashboardData)
-    } catch (err) {
-      console.error('🔍 Error in fetchDashboard:', err)
-      setError('Error de conexión')
+      setData(dashboardSchema.parse(raw))
+    } catch (requestError) {
+      console.error('Error in fetchDashboard:', requestError)
+      setError('Los datos del Dashboard no tienen el formato esperado')
     } finally {
       setLoading(false)
     }
   }, [usuarioId, month, categoria])
 
-  useEffect(() => {
-    fetchDashboard()
-  }, [fetchDashboard])
-
-  return { data, loading, error, refresh: fetchDashboard }
+  useEffect(() => { void fetchDashboard() }, [fetchDashboard])
+  return { data, loading, error, refresh: () => { void fetchDashboard() } }
 }

@@ -10,6 +10,7 @@ export interface UserProfile {
   nombre_completo: string
   rol: string
   token: string
+  expiresAt?: string
 }
 
 export interface UseAuthReturn {
@@ -26,6 +27,10 @@ function loadSession(): UserProfile | null {
     const raw = localStorage.getItem(SESSION_KEY)
     if (!raw) return null
     const parsed = JSON.parse(raw) as UserProfile
+    if (parsed?.expiresAt && Date.parse(parsed.expiresAt) <= Date.now()) {
+      clearSession()
+      return null
+    }
     if (parsed?.id && parsed.username && parsed.token) return parsed
     return null
   } catch {
@@ -46,16 +51,14 @@ function errorMessage(error: unknown): string {
 }
 
 export function useAuth(): UseAuthReturn {
-  const [user, setUser] = useState<UserProfile | null>(() => {
-    const loaded = loadSession()
-    if (loaded) useAppStore.getState().setUser(loaded)
-    return loaded
-  })
-  const [loading, setLoading] = useState(false)
+  const user = useAppStore((state) => state.user)
+  const setUser = useAppStore((state) => state.setUser)
+  const [loading, setLoading] = useState(true)
 
   useEffect(() => {
+    if (!useAppStore.getState().user) setUser(loadSession())
     setLoading(false)
-  }, [])
+  }, [setUser])
 
   const signIn = async (username: string, pin: string): Promise<{ error?: string }> => {
     if (!username.trim()) return { error: 'Ingresá tu usuario' }
@@ -63,10 +66,13 @@ export function useAuth(): UseAuthReturn {
 
     try {
       const response = await loginWithPin(username.trim().toLowerCase(), pin)
-      const profile: UserProfile = { ...response.profile, token: response.token }
+      const profile: UserProfile = {
+        ...response.profile,
+        token: response.token,
+        expiresAt: response.expiresAt,
+      }
       saveSession(profile)
       setUser(profile)
-      useAppStore.getState().setUser(profile)
       return {}
     } catch (error) {
       console.error('Login error:', error)
@@ -78,7 +84,7 @@ export function useAuth(): UseAuthReturn {
     if (!/^\d{4}$/.test(pinActual)) return { error: 'El PIN actual debe tener 4 dígitos' }
     if (!/^\d{4}$/.test(pinNuevo)) return { error: 'El PIN nuevo debe tener exactamente 4 dígitos numéricos' }
 
-    const currentUser = user ?? useAppStore.getState().user
+    const currentUser = user
     if (!currentUser) return { error: 'No hay sesión activa' }
 
     try {
@@ -91,11 +97,10 @@ export function useAuth(): UseAuthReturn {
   }
 
   const signOut = async (): Promise<void> => {
-    const currentUser = user ?? useAppStore.getState().user
+    const currentUser = user
     if (currentUser?.token) await logoutWithToken(currentUser.token).catch(() => undefined)
     clearSession()
     setUser(null)
-    useAppStore.getState().setUser(null)
   }
 
   return { user, session: user, loading, signIn, signOut, cambiarPin }

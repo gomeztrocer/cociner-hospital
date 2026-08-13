@@ -5,6 +5,7 @@ import ServicioToggle from '../components/calcular/ServicioToggle'
 import CentrosGrid from '../components/calcular/CentrosGrid'
 import ProteinaSection from '../components/calcular/ProteinaSection'
 import GuarnicionSection from '../components/calcular/GuarnicionSection'
+import ConfirmarProduccionGuarniciones from '../components/calcular/ConfirmarProduccionGuarniciones'
 
 export default function Calcular() {
   const servicio = useAppStore((s) => s.servicio)
@@ -108,6 +109,7 @@ export default function Calcular() {
                   <IconPlus size={13} style={{ verticalAlign: -1 }} /> Añadir otra guarnición
                 </button>
               )}
+              <ConfirmarProduccionGuarniciones />
             </>
           )}
         </div>

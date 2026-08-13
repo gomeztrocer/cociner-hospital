@@ -52,6 +52,7 @@ export interface UserSession {
   nombre_completo: string
   rol: string
   token: string
+  expiresAt?: string
 }
 
 export interface AppState {
@@ -276,12 +277,16 @@ export const useAppStore = create<AppState>((set, get) => ({
   addGuarnicion: (preset) => {
     const state = get()
     if (state.guarniciones.length >= 2) return
+    const guarnicionesCalculadas = state.guarniciones
+      .filter((guarnicion) => state.resultadosGuarniciones[guarnicion.id] != null)
+      .map((guarnicion) => guarnicion.id)
     set((s) => {
       const nueva = createDefaultGuarnicion()
       if (preset) Object.assign(nueva, preset)
       return { guarniciones: [...s.guarniciones, nueva] }
     })
     get().recalcularAsignaciones()
+    guarnicionesCalculadas.forEach((id) => get().calcularGuarnicionPrep(id))
   },
 
   removeGuarnicion: (id) => {

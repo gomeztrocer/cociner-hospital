@@ -5,6 +5,21 @@ interface ApiErrorBody {
   error?: string
 }
 
+export class CocinerApiError extends Error {
+  readonly status: number
+
+  constructor(message: string, status: number) {
+    super(message)
+    this.name = 'CocinerApiError'
+    this.status = status
+  }
+}
+
+export function isSessionExpiredError(error: unknown): boolean {
+  return error instanceof CocinerApiError
+    && (error.status === 401 || /sesi.n.*(?:caduc|v.lida)/i.test(error.message))
+}
+
 export interface CocinerSessionProfile {
   id: string
   username: string
@@ -86,7 +101,7 @@ export async function callFunction<T>(
 
   const body = await response.json().catch(() => ({})) as ApiErrorBody & T
   if (!response.ok) {
-    throw new Error(body.error ?? 'No se pudo completar la operación')
+    throw new CocinerApiError(body.error ?? 'No se pudo completar la operación', response.status)
   }
 
   return body as T

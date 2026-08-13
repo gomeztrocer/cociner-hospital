@@ -22,6 +22,8 @@ interface EditDraft {
   servicio: string
   fecha: string
   notas: string
+  barquetas: string
+  cantidadProducidaKg: string
 }
 
 export default function Registrar() {
@@ -86,6 +88,8 @@ export default function Registrar() {
       servicio: registro.servicio,
       fecha: registro.fecha,
       notas: registro.notas ?? '',
+      barquetas: String(registro.barquetas),
+      cantidadProducidaKg: registro.cantidad_producida_g == null ? '' : String(registro.cantidad_producida_g / 1000),
     })
   }
 
@@ -102,6 +106,10 @@ export default function Registrar() {
       raciones: Number.parseInt(editDraft.raciones, 10),
       fecha: editDraft.fecha,
       notas: editDraft.notas,
+      barquetas: Number.parseInt(editDraft.barquetas, 10),
+      cantidadCalculadaG: registros.find((registro) => registro.id === editDraft.id)?.cantidad_calculada_g ?? null,
+      cantidadProducidaG: editDraft.cantidadProducidaKg ? Math.round(Number(editDraft.cantidadProducidaKg) * 1000) : null,
+      distribucionCentros: registros.find((registro) => registro.id === editDraft.id)?.distribucion_centros ?? [],
     })
     setAdminSaving(false)
 
@@ -258,6 +266,15 @@ export default function Registrar() {
                       {registro.raciones} raciones · {registro.servicio}
                       {registro.categoria ? ` · ${registro.categoria}` : ''}
                     </p>
+                    <p className="text-[12px] text-text2 mt-1">
+                      {registro.barquetas} barquetas
+                      {registro.cantidad_producida_g != null ? ` · ${(registro.cantidad_producida_g / 1000).toLocaleString('es-ES')} kg producidos` : ''}
+                    </p>
+                    {registro.distribucion_centros.length > 0 && (
+                      <p className="text-[11px] text-text3 mt-1">
+                        {registro.distribucion_centros.map((centro) => `${centro.nombre}: ${centro.total_barquetas}`).join(' · ')}
+                      </p>
+                    )}
                     <p className="text-[11px] text-text3 mt-1">
                       {isAdmin && `${registro.usuario_nombre} · `}{formatHora(registro.created_at)}
                       {registro.updated_at ? ' · editado' : ''}
@@ -340,6 +357,17 @@ export default function Registrar() {
               onChange={(event) => setEditDraft({ ...editDraft, fecha: event.target.value })}
               className="w-full px-3 py-[10px] text-sm bg-bg border border-border rounded-lg text-text outline-none focus:border-accent mb-3"
             />
+
+            <div className="grid grid-cols-2 gap-3 mb-3">
+              <div>
+                <label htmlFor="edit-barquetas" className="block text-[11px] font-medium text-text2 mb-1">Barquetas reales</label>
+                <input id="edit-barquetas" type="number" min="0" value={editDraft.barquetas} onChange={(event) => setEditDraft({ ...editDraft, barquetas: event.target.value })} className="w-full px-3 py-[10px] text-sm bg-bg border border-border rounded-lg text-text outline-none focus:border-accent" />
+              </div>
+              <div>
+                <label htmlFor="edit-producido" className="block text-[11px] font-medium text-text2 mb-1">Cantidad producida (kg)</label>
+                <input id="edit-producido" type="number" min="0.001" step="0.001" value={editDraft.cantidadProducidaKg} onChange={(event) => setEditDraft({ ...editDraft, cantidadProducidaKg: event.target.value })} className="w-full px-3 py-[10px] text-sm bg-bg border border-border rounded-lg text-text outline-none focus:border-accent" />
+              </div>
+            </div>
 
             {adminError && <InlineMessage error>{adminError}</InlineMessage>}
             <div className="grid grid-cols-2 gap-2">

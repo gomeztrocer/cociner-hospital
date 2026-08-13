@@ -7,10 +7,12 @@ import { useHistorial, type Registro } from './useHistorial'
 
 const api = vi.hoisted(() => ({
   registrosRequest: vi.fn(),
+  isSessionExpiredError: vi.fn(),
 }))
 
 vi.mock('../lib/cocinerApi', () => ({
   registrosRequest: api.registrosRequest,
+  isSessionExpiredError: api.isSessionExpiredError,
 }))
 
 const registro: Registro = {
@@ -23,6 +25,11 @@ const registro: Registro = {
   fecha: '2026-08-10',
   notas: null,
   categoria: 'manual',
+  barquetas: 12,
+  cantidad_calculada_g: null,
+  cantidad_producida_g: null,
+  distribucion_centros: [],
+  grupo_produccion: null,
   created_at: '2026-08-10T10:00:00.000Z',
   updated_at: null,
 }
@@ -30,6 +37,8 @@ const registro: Registro = {
 describe('useHistorial', () => {
   beforeEach(() => {
     api.registrosRequest.mockReset()
+    api.isSessionExpiredError.mockReset()
+    api.isSessionExpiredError.mockReturnValue(false)
     api.registrosRequest.mockResolvedValue({ registros: [] })
     useAppStore.setState({
       user: {
@@ -80,6 +89,10 @@ describe('useHistorial', () => {
       fecha: '2026-08-09',
       notas: null,
       categoria: 'manual',
+      barquetas: null,
+      cantidad_calculada_g: null,
+      cantidad_producida_g: null,
+      distribucion_centros: null,
     })
     expect(api.registrosRequest).toHaveBeenCalledTimes(3)
   })
@@ -106,6 +119,10 @@ describe('useHistorial', () => {
       raciones: 100,
       fecha: '2026-08-08',
       notas: 'Corregido',
+      barquetas: null,
+      cantidad_calculada_g: null,
+      cantidad_producida_g: null,
+      distribucion_centros: null,
     })
 
     await act(async () => {
@@ -133,5 +150,31 @@ describe('useHistorial', () => {
     })
 
     expect(api.registrosRequest).not.toHaveBeenCalled()
+  })
+
+  it('registra dos guarniciones en una única petición atómica', async () => {
+    const { result } = renderHook(() => useHistorial('admin-1', '2026-08-10', true))
+    await waitFor(() => expect(api.registrosRequest).toHaveBeenCalledTimes(1))
+
+    await act(async () => {
+      expect(await result.current.addRegistrosProduccion({
+        fecha: '2026-08-10',
+        servicio: 'Almuerzo',
+        producciones: [
+          { clientId: 'arroz', plato: 'Arroz', raciones: 120, barquetas: 6, cantidadCalculadaG: 7200, cantidadProducidaG: 7500, distribucionCentros: [] },
+          { clientId: 'menestra', plato: 'Menestra', raciones: 120, barquetas: 6, cantidadCalculadaG: 7200, cantidadProducidaG: 7200, distribucionCentros: [] },
+        ],
+      })).toEqual({})
+    })
+
+    expect(api.registrosRequest).toHaveBeenCalledWith('token-sesion', {
+      action: 'create-batch',
+      fecha: '2026-08-10',
+      servicio: 'Almuerzo',
+      producciones: [
+        { client_id: 'arroz', plato: 'Arroz', raciones: 120, notas: null, categoria: 'guarnicion', barquetas: 6, cantidad_calculada_g: 7200, cantidad_producida_g: 7500, distribucion_centros: [] },
+        { client_id: 'menestra', plato: 'Menestra', raciones: 120, notas: null, categoria: 'guarnicion', barquetas: 6, cantidad_calculada_g: 7200, cantidad_producida_g: 7200, distribucion_centros: [] },
+      ],
+    })
   })
 })
